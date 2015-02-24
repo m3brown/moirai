@@ -1,3 +1,8 @@
+*~
+#*#
+
+*secret*
+
 # OS generated files #
 ######################
 .DS_Store
@@ -34,6 +39,5 @@ coverage.xml
 
 # Front-End #
 #############
-node_modules/
 bower_components/
 .grunt/
