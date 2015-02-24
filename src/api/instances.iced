@@ -29,6 +29,8 @@ instances.handle_create_instance = (req, resp) ->
 instances.handle_get_instances = (req, resp) ->
   resp.send('NOT IMPLEMENTED')
 
+instances.handle_get_instance = (req, resp) ->
+  resp.send('NOT IMPLEMENTED')
 instances.handle_update_instance = (req, resp) ->
   resp.send('NOT IMPLEMENTED')
 

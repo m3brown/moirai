@@ -23,6 +23,9 @@ clusters.handle_create_cluster = (req, resp) ->
     return resp.status(500).send(JSON.stringify({error: 'internal error', msg: 'internal error'}))
   return resp.status(201).send(JSON.stringify(cluster_doc))
 
+clusters.handle_get_clusters = (req, resp) ->
+  resp.send('NOT IMPLEMENTED')
+
 clusters.handle_get_cluster = (req, resp) ->
   resp.send('NOT IMPLEMENTED')
 
@@ -34,3 +37,5 @@ clusters.handle_destroy_cluster = (req, resp) ->
 
 clusters.handle_add_instance = (req, resp) ->
   resp.send('NOT IMPLEMENTED')
+
+module.exports = clusters
