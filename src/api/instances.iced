@@ -21,7 +21,8 @@ instances.create_instance = (client, opts, callback) ->
     MaxCount: 1,
     MinCount: 1,
     KeyName: conf.AWS.KEYNAME,
-    SubnetId: conf.AWS.SUBNETID
+    SubnetId: conf.AWS.SUBNETID,
+    SecurityGroupIds: conf.AWS.SECURITYGROUPIDS
   }
   user_params = _.pick(opts, 'InstanceType', 'UserData')
   _.extend(instance_params, user_params, required_params)
