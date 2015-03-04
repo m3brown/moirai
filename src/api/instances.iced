@@ -37,7 +37,10 @@ instances.create_instance = (client, opts, callback) ->
     BusinessOwner: '',
     Description: '',
   }
-  user_tags = opts.tags or {}
+
+  # TODO should we blindly accept tags? Only tags we plan on
+  # Using? what if there are more than 10?
+  user_tags = _.pick(opts.tags, 'Application', 'Name')
 
   # TODO should there be config defaults? none of these
   # should be hardcoded
@@ -62,7 +65,7 @@ instances.create_instance = (client, opts, callback) ->
   if err
     # What do we do here? delete the instance?
     return callback(err)
-  return callback(null, tag_data)
+  return callback(null, data)
 
   # TODO: 2 create instance in db if 1 successful
   # TODO: 3 worker watched db?
@@ -71,7 +74,7 @@ instances.handle_create_instance = (req, resp) ->
   all_opts = req.body
   await instances.create_instance(req.couch, all_opts, defer(err, cluster_doc))
   if err
-    return resp.status(500).send(JSON.stringify({error: 'internal error', msg: 'internal error'}))
+    return resp.status(500).send(JSON.stringify({error: 'internal error', msg: err}))
   return resp.status(201).send(JSON.stringify(cluster_doc))
 
 instances.get_instances = (client, callback) ->
@@ -96,7 +99,7 @@ instances.get_instances = (client, callback) ->
 instances.handle_get_instances = (req, resp) ->
   await instances.get_instances(req.couch, defer(err, data))
   if err
-    return resp.status(500).send(JSON.stringify({error: 'internal error', msg: 'internal error'}))
+    return resp.status(500).send(JSON.stringify({error: 'internal error', msg: err}))
   return resp.status(201).send(JSON.stringify(data))
 
 instances.handle_get_instance = (req, resp) ->
