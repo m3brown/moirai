@@ -3,6 +3,27 @@ aws = require('aws-sdk')
 conf = require('../config')
 clusters = require('./clusters')
 
+utils = {}
+# Get only the fields we want from an instance object
+utils.prepare_instance = (instance) ->
+  fields = [
+    'InstanceId',
+    'InstanceType',
+    'PrivateIpAddress',
+    'Tags',
+  ]
+  return _.pick(instance, fields...)
+
+# Trim and regroup all instances in a response
+# Instances from aws-sdk are bundled inside of a list
+# of reservation objects
+utils.prepare_instances = (resp_object) ->
+  instances = []
+  for reservation in resp_object.Reservations
+    for instance in reservation.Instances
+      instances.push utils.prepare_instance(instance)
+  return instances
+
 instances = {}
 ec2 = new aws.EC2({
   apiVersion: conf.AWS.APIVERSION,
@@ -94,7 +115,7 @@ instances.get_instances = (client, callback) ->
   await ec2.describeInstances(params, defer(err, data))
   if err
     return callback(err)
-  return callback(null, data)
+  return callback(null, utils.prepare_instances(data))
 
 instances.handle_get_instances = (req, resp) ->
   await instances.get_instances(req.couch, defer(err, data))
@@ -102,8 +123,24 @@ instances.handle_get_instances = (req, resp) ->
     return resp.status(500).send(JSON.stringify({error: 'internal error', msg: err}))
   return resp.status(201).send(JSON.stringify(data))
 
+instances.get_instance = (client, instance_id, callback) ->
+  params = {
+    InstanceIds: [instance_id]
+  }
+
+  await ec2.describeInstances(params, defer(err, data))
+  if err
+    return callback(err)
+  return callback(null, utils.prepare_instances(data))
+
 instances.handle_get_instance = (req, resp) ->
-  resp.send('NOT IMPLEMENTED')
+  instance_id = req.params.instance_id
+  await instances.get_instance(req.couch, instance_id, defer(err, data))
+  if err
+    return resp.status(500).send(JSON.stringify({error: 'internal error', msg: 'internal error'}))
+  return resp.status(201).send(JSON.stringify(data))
+
+
 instances.handle_update_instance = (req, resp) ->
   resp.send('NOT IMPLEMENTED')
 
