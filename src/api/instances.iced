@@ -1,7 +1,6 @@
 _ = require('underscore')
 aws = require('aws-sdk')
 conf = require('../config')
-clusters = require('./clusters')
 
 utils = {}
 # Get only the fields we want from an instance object
@@ -142,6 +141,9 @@ instances.handle_get_instance = (req, resp) ->
 
 
 instances.handle_update_instance = (req, resp) ->
+  # TODO determine what updates are available
+  # name
+  # instance type (requires shutdown)
   resp.send('NOT IMPLEMENTED')
 
 instances.destroy_instance = (client, instance_id, callback) ->

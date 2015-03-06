@@ -11,6 +11,7 @@ module.exports = (app) ->
     app.delete('/moirai/instances/:instance_id', instances.handle_destroy_instance)
 
     app.get('/moirai/clusters', clusters.handle_get_clusters)
+    app.post('/moirai/clusters', clusters.handle_create_cluster)
 
     app.get('/moirai/clusters/:cluster_id', clusters.handle_get_cluster)
     app.patch('/moirai/clusters/:cluster_id', clusters.handle_update_cluster)
