@@ -1,3 +1,4 @@
+instances = require('./instances')
 _ = require('underscore')
 
 clusters = {}
@@ -11,9 +12,25 @@ clusters.handle_get_cluster = (req, resp) ->
   return clusters.get_cluster(client, cluster_id).pipe(resp)
 
 clusters.create_cluster = (client, opts, callback) ->
-  await client.insert(opts, defer(err, resp))
+  # validate opts
+
+  # submit request to AWS
+  created_instances = []
+  err = []
+  console.log(opts.instances)
+  await
+    for instance,i in opts.instances
+      console.log(instance)
+      instances.create_instance(client, instance, defer(err[i], created_instances[i]))
+
+  # After successfully creating in AWS, insert record DB
+  cluster = {
+    # TODO add more opts
+    instances: created_instances
+  }
+  await client.insert(cluster, defer(err, resp))
   if err then return callback(err)
-  out = _.extend({}, opts, {_id: resp.id, _rev: resp.rev})
+  out = _.extend(cluster, {_id: resp.id, _rev: resp.rev})
   return callback(null, out)
 
 clusters.handle_create_cluster = (req, resp) ->
