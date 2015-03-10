@@ -1,5 +1,6 @@
 instances = require('./instances')
 _ = require('underscore')
+couch_utils = require('../couch_utils')
 
 clusters = {}
 
@@ -12,7 +13,7 @@ clusters.handle_get_cluster = (req, resp) ->
   return clusters.get_cluster(client, cluster_id).pipe(resp)
 
 clusters.create_cluster = (client, opts, callback) ->
-  # validate opts
+  # TODO validate opts
 
   # submit request to AWS
   created_instances = []
@@ -20,7 +21,6 @@ clusters.create_cluster = (client, opts, callback) ->
   console.log(opts.instances)
   await
     for instance,i in opts.instances
-      console.log(instance)
       instances.create_instance(client, instance, defer(err[i], created_instances[i]))
 
   # After successfully creating in AWS, insert record DB
@@ -28,9 +28,22 @@ clusters.create_cluster = (client, opts, callback) ->
     # TODO add more opts
     instances: created_instances
   }
-  await client.insert(cluster, defer(err, resp))
+
+  #client.db.destroy('moirai')
+  #console.log("destroyed moirai")
+  moirai_db = client.use('moirai')
+  await couch_utils.ensure_db(moirai_db, 'insert', cluster, defer(err, couch_resp))
+#  moirai_db.insert(cluster).on('response', (couch_resp) ->
+#    #if couch_resp.statusCode < 400
+#    #  moirai_db.get(team_id).pipe(resp)
+#    #else
+  console.log(couch_resp)
+#  )
+
+#  #await client.insert(cluster, defer(err, resp))
+  # TODO if there's an error, do we delete the machine or reattempt DB insert?
   if err then return callback(err)
-  out = _.extend(cluster, {_id: resp.id, _rev: resp.rev})
+  out = _.extend(cluster, {_id: couch_resp.id, _rev: couch_resp.rev})
   return callback(null, out)
 
 clusters.handle_create_cluster = (req, resp) ->

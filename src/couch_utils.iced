@@ -35,11 +35,6 @@ x.ensure_db = (db, method, args...) ->
     await nano_admin.db.create(db.config.db, defer(err, resp))
     if err
       return callback?(err, resp)
-    db_name = db.config.db
-    design_docs = require('./design_docs/' + db_name.split('_')[0])
-    await x.sync_design_docs(db_name, design_docs, defer(err, resp))
-    if err
-      return callback?(err, resp)
     return db[method].apply(db, args.concat([callback]))
   else
     return callback?(err, resp)

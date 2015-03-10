@@ -4,24 +4,21 @@ conf = require('../config')
 
 utils = {}
 # Get only the fields we want from an instance object
-utils.prepare_instance = (instance) ->
+# Instances from aws-sdk are bundled inside of a list
+# of reservation objects
+utils.prepare_instances = (resp_object) ->
   fields = [
     'InstanceId',
     'InstanceType',
     'PrivateIpAddress',
     'Tags',
   ]
-  return _.pick(instance, fields...)
 
-# Trim and regroup all instances in a response
-# Instances from aws-sdk are bundled inside of a list
-# of reservation objects
-utils.prepare_instances = (resp_object) ->
-  instances = []
+  instance_list = []
   for reservation in resp_object.Reservations
     for instance in reservation.Instances
-      instances.push utils.prepare_instance(instance)
-  return instances
+      instance_list.push _.pick(instance, fields...)
+  return instance_list
 
 instances = {}
 ec2 = new aws.EC2({
@@ -85,7 +82,7 @@ instances.create_instance = (client, opts, callback) ->
   if err
     # What do we do here? delete the instance?
     return callback(err)
-  return callback(null, data)
+  return callback(null, utils.prepare_instances(data)[0])
 
   # TODO: 2 create instance in db if 1 successful
   # TODO: 3 worker watched db?
@@ -130,7 +127,7 @@ instances.get_instance = (client, instance_id, callback) ->
   await ec2.describeInstances(params, defer(err, data))
   if err
     return callback(err)
-  return callback(null, utils.prepare_instances(data))
+  return callback(null, utils.prepare_instances(data)[0])
 
 instances.handle_get_instance = (req, resp) ->
   instance_id = req.params.instance_id
