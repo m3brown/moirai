@@ -1,12 +1,12 @@
 _ = require('underscore')
+Promise = require('promise')
 aws = require('aws-sdk')
 conf = require('../config')
 
-utils = {}
 # Get only the fields we want from an instance object
 # Instances from aws-sdk are bundled inside of a list
 # of reservation objects
-utils.prepare_instances = (resp_object) ->
+prepareInstances = (resp_object) ->
   fields = [
     'InstanceId',
     'InstanceType',
@@ -15,20 +15,34 @@ utils.prepare_instances = (resp_object) ->
   ]
 
   instance_list = []
-  for reservation in resp_object.Reservations
-    for instance in reservation.Instances
+
+  if resp_object.Reservations != undefined
+    for reservation in resp_object.Reservations
+      for instance in reservation.Instances
+        instance_list.push _.pick(instance, fields...)
+  else
+    for instance in resp_object.Instances
       instance_list.push _.pick(instance, fields...)
   return instance_list
 
 instances = {}
-ec2 = new aws.EC2({
+
+ec2PromiseClient = (ec2_opts) ->
+  ec2 = new aws.EC2(ec2_opts)
+  client = {}
+  ['createTags', 'describeInstances', 'runInstances', 'terminateInstances'].forEach((method) ->
+    client[method] = Promise.denodeify(ec2[method]).bind(ec2)
+  )
+  return client
+
+ec2 = ec2PromiseClient({
   apiVersion: conf.AWS.APIVERSION,
   accessKeyId: conf.AWS.ACCESS_KEY,
   secretAccessKey: conf.AWS.SECRET_KEY,
   region: conf.AWS.REGION
 })
 
-instances.create_instance = (client, opts, callback) ->
+instances.create_instance = (opts) ->
   instance_params = {
     InstanceType: conf.AWS.INSTANCETYPE,
     UserData: ''
@@ -70,31 +84,29 @@ instances.create_instance = (client, opts, callback) ->
   _.extend(tags, user_tags, required_tags)
 
   # create instance via AWS API
-  await ec2.runInstances(instance_params, defer(err, data))
-  if err
-    return callback(err)
+  ec2.runInstances(instance_params).then((data) ->
+    tag_params = 
+      Resources: [data.Instances[0].InstanceId],
+      Tags: ({'Key': key, 'Value': value} for key,value of tags)
+    preparedInstance = prepareInstances(data)[0]
 
-  tag_params = 
-    Resources: [data.Instances[0].InstanceId],
-    Tags: ({'Key': key, 'Value': value} for key,value of tags)
-
-  await ec2.createTags(tag_params, defer(err, tag_data))
-  if err
-    # What do we do here? delete the instance?
-    return callback(err)
-  return callback(null, utils.prepare_instances(data)[0])
-
-  # TODO: 2 create instance in db if 1 successful
-  # TODO: 3 worker watched db?
+    ec2.createTags(tag_params).catch((err) ->
+      # What do we do here? delete the instance?
+      Promise.reject(new Error("Failed to create tags"))
+    ).then(() ->
+      Promise.resolve(preparedInstance)
+    )
+  )
 
 instances.handle_create_instance = (req, resp) ->
   all_opts = req.body
-  await instances.create_instance(req.couch, all_opts, defer(err, cluster_doc))
-  if err
-    return resp.status(500).send(JSON.stringify({error: 'internal error', msg: err}))
-  return resp.status(201).send(JSON.stringify(cluster_doc))
+  instances.create_instance(req.couch, all_opts).then((cluster_doc) ->
+    return resp.status(201).send(JSON.stringify(cluster_doc))
+  ).catch((err) ->
+    return resp.status(500).send(JSON.stringify({error: 'internal error', msg: String(err)}))
+  )
 
-instances.get_instances = (client, callback) ->
+instances.get_instances = () ->
   params = {
     Filters: [
       {
@@ -108,33 +120,33 @@ instances.get_instances = (client, callback) ->
       }
     ]
   }
-  await ec2.describeInstances(params, defer(err, data))
-  if err
-    return callback(err)
-  return callback(null, utils.prepare_instances(data))
+  ec2.describeInstances(params).then((data) ->
+    Promise.resolve(prepareInstances(data))
+  )
 
 instances.handle_get_instances = (req, resp) ->
-  await instances.get_instances(req.couch, defer(err, data))
-  if err
-    return resp.status(500).send(JSON.stringify({error: 'internal error', msg: err}))
-  return resp.status(201).send(JSON.stringify(data))
+  instances.get_instances().then((data) ->
+    return resp.status(201).send(JSON.stringify(data))
+  ).catch((err) ->
+    return resp.status(500).send(JSON.stringify({error: 'internal error', msg: String(err)}))
+  )
 
-instances.get_instance = (client, instance_id, callback) ->
+instances.get_instance = (instance_id) ->
   params = {
     InstanceIds: [instance_id]
   }
 
-  await ec2.describeInstances(params, defer(err, data))
-  if err
-    return callback(err)
-  return callback(null, utils.prepare_instances(data)[0])
+  ec2.describeInstances(params).then((data) ->
+    Promise.resolve(prepareInstances(data)[0])
+  )
 
 instances.handle_get_instance = (req, resp) ->
   instance_id = req.params.instance_id
-  await instances.get_instance(req.couch, instance_id, defer(err, data))
-  if err
-    return resp.status(500).send(JSON.stringify({error: 'internal error', msg: 'internal error'}))
-  return resp.status(201).send(JSON.stringify(data))
+  instances.get_instance(instance_id).then((data) ->
+    return resp.status(201).send(JSON.stringify(data))
+  ).catch((err) ->
+    return resp.status(500).send(JSON.stringify({error: 'internal error', msg: String(err)}))
+  )
 
 
 instances.handle_update_instance = (req, resp) ->
@@ -143,22 +155,20 @@ instances.handle_update_instance = (req, resp) ->
   # instance type (requires shutdown)
   resp.send('NOT IMPLEMENTED')
 
-instances.destroy_instance = (client, instance_id, callback) ->
+instances.destroy_instance = (instance_id) ->
   params = {
     InstanceIds: [instance_id]
   }
 
-  await ec2.terminateInstances(params, defer(err, data))
-  if err
-    return callback(err)
-  return callback(null, data)
+  ec2.terminateInstances(params)
 
 
 instances.handle_destroy_instance = (req, resp) ->
   instance_id = req.params.instance_id
-  await instances.destroy_instance(req.couch, instance_id, defer(err, data))
-  if err
-    return resp.status(500).send(JSON.stringify({error: 'internal error', msg: 'internal error'}))
-  return resp.status(201).send(JSON.stringify(data))
+  instances.destroy_instance(instance_id).then((data) ->
+    return resp.status(201).send(JSON.stringify(data))
+  ).catch((err) ->
+    return resp.status(500).send(JSON.stringify({error: 'internal error', msg: String(err)}))
+  )
 
 module.exports = instances
