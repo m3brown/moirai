@@ -94,6 +94,7 @@ instances.create_instance = (opts) ->
       # What do we do here? delete the instance?
       Promise.reject(new Error("Failed to create tags"))
     ).then(() ->
+      preparedInstance.Tags = tag_params.Tags
       Promise.resolve(preparedInstance)
     )
   )
