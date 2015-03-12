@@ -43,31 +43,28 @@ ec2 = ec2PromiseClient({
 })
 
 instances.create_instance = (opts) ->
-  instance_params = {
+  instance_params =
     InstanceType: conf.AWS.INSTANCETYPE,
     UserData: ''
-  }
-  required_params = {
+  required_params =
     ImageId: conf.AWS.IMAGEID,
     MaxCount: 1,
     MinCount: 1,
     KeyName: conf.AWS.KEYNAME,
     SubnetId: conf.AWS.SUBNETID,
     SecurityGroupIds: conf.AWS.SECURITYGROUPIDS
-  }
   user_params = _.pick(opts, 'InstanceType', 'UserData')
   _.extend(instance_params, user_params, required_params)
 
   # TODO should there be config defaults? none of these
   # should be hardcoded
-  tags = {
+  tags =
     Name: "AWSDEVMOIRAI", # TODO generate this
     Application: '',
     Creator: 'default.user@example.com', # TODO figure this out
     Software: '',
     BusinessOwner: '',
     Description: '',
-  }
 
   # TODO should we blindly accept tags? Only tags we plan on
   # Using? what if there are more than 10?
@@ -75,12 +72,12 @@ instances.create_instance = (opts) ->
 
   # TODO should there be config defaults? none of these
   # should be hardcoded
-  required_tags = {
+  required_tags =
     Domain: 'dev',
     PuppetRole: '',
     SysAdmin: 'SE',
     CreateDate: new Date().toISOString().split('T')[0]
-  }
+
   _.extend(tags, user_tags, required_tags)
 
   # create instance via AWS API
