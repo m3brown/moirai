@@ -11,6 +11,7 @@ prepareInstances = (resp_object) ->
     'InstanceId',
     'InstanceType',
     'PrivateIpAddress',
+    'State',
     'Tags',
   ]
 
