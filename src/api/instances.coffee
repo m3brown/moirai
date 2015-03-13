@@ -90,7 +90,7 @@ instances.create_instance = (opts) ->
 
     ec2.createTags(tag_params).catch((err) ->
       # What do we do here? delete the instance?
-      Promise.reject(new Error("Failed to create tags"))
+      Promise.reject(err)
     ).then(() ->
       preparedInstance.Tags = tag_params.Tags
       Promise.resolve(preparedInstance)
@@ -98,7 +98,7 @@ instances.create_instance = (opts) ->
   )
 
 instances.handle_create_instance = (req, resp) ->
-  all_opts = req.body
+  all_opts = req.body or {}
   instances.create_instance(req.couch, all_opts).then((cluster_doc) ->
     return resp.status(201).send(JSON.stringify(cluster_doc))
   ).catch((err) ->

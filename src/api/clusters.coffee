@@ -30,8 +30,6 @@ clusters.create_cluster = (db_client, opts) ->
       instances: created_instances
     }
 
-    #client.db.destroy('moirai')
-    #console.log("destroyed moirai")
     ensure_db = Promise.denodeify(couch_utils.ensure_db)
     ensure_db(db_client, 'insert', cluster).then((couch_resp) ->
       Promise.resolve(_.extend(cluster, {_id: couch_resp.id, _rev: couch_resp.rev}))
@@ -46,6 +44,8 @@ clusters.create_cluster = (db_client, opts) ->
 
 
 clusters.handle_create_cluster = (req, resp) ->
+  #req.couch.db.destroy('moirai')
+  #console.log("destroyed moirai")
   cluster_opts = req.body or {}
   create_cluster = Promise.denodeify(clusters.create_cluster)
   create_cluster(req.couch.use('moirai'), cluster_opts).then((cluster_doc) ->
@@ -74,21 +74,18 @@ clusters.handle_get_clusters = (req, resp) ->
 clusters.handle_update_cluster = (req, resp) ->
   resp.send('NOT IMPLEMENTED')
 
+# The destroy cluster action physically terminates all instances via
+# the AWS api, then marks the cluster state as 'terminated'
 clusters.destroy_cluster = (db_client, cluster_id) ->
   clusters.get_cluster(db_client, cluster_id).then((cluster) ->
     Promise.all(
       cluster.instances.map((instance) ->
         instances.destroy_instance(instance.InstanceId)
-        instance.State = {
-            Code: 48
-            Name: "terminated"
-        }
-        Promise.resolve(instance)
       )
     ).then((updated_instances) ->
       # Update the doc to denote that the cluster is terminated
       cluster.state = 'terminated'
-      cluster.instances = updated_instances
+      cluster.instances = []
       Promise.denodeify(couch_utils.ensure_db)(db_client, 'insert', cluster)
     ).catch((err) ->
       # TODO handle error in one or more destroy requests
@@ -108,7 +105,29 @@ clusters.handle_destroy_cluster = (req, resp) ->
     return resp.status(500).send(JSON.stringify({error: 'internal error', msg: String(err)}))
   )
 
+clusters.add_instance = (db_client, cluster_id, instance_opts) ->
+  instances.create_instance(instance_opts).then((data) ->
+    clusters.get_cluster(db_client, cluster_id).then((cluster) ->
+      console.log(cluster)
+      cluster.instances.push(data)
+      Promise.denodeify(couch_utils.ensure_db)(db_client, 'insert', cluster).then(() ->
+        # Return the new instance
+        Promise.resolve(data)
+      )
+    ).catch((err) ->
+      # TODO handle error updating DB
+      Promise.reject(err)
+    )
+  )
+
 clusters.handle_add_instance = (req, resp) ->
-  resp.send('NOT IMPLEMENTED')
+  cluster_id = req.params.cluster_id
+  instance_opts = req.body or {}
+  client = req.couch.use('moirai')
+  clusters.add_instance(client, cluster_id, instance_opts).then((couch_resp) ->
+    return resp.status(201).send(JSON.stringify(couch_resp))
+  ).catch((err) ->
+    return resp.status(500).send(JSON.stringify({error: 'internal error', msg: String(err)}))
+  )
 
 module.exports = clusters
