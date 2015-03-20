@@ -7,12 +7,12 @@
     "basic-auth": "1.0.0",
     "body-parser": "1.10.0",
     "cookie-session": "1.1.0",
-    "es6-promise": "^2.0.1",
     "express": "4.10.4",
     "iced-runtime": "1.0.2",
     "nano": "6.0.2",
     "promise": "^6.1.0",
-    "underscore": "1.7.0"
+    "underscore": "1.7.0",
+    "pantheon-helpers": "git+https://github.com/dgreisen-cfpb/pantheon-helpers.git"
   },
   "devDependencies": {},
   "engine": "node >= 0.10.1"
