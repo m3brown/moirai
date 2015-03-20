@@ -45,16 +45,16 @@ ec2 = ec2PromiseClient({
 
 instances.create_instance = (opts) ->
   instance_params =
-    InstanceType: conf.AWS.INSTANCETYPE,
-    UserData: ''
+    InstanceType: conf.AWS.INSTANCETYPE
+
   required_params =
-    ImageId: conf.AWS.IMAGEID,
-    MaxCount: 1,
-    MinCount: 1,
-    KeyName: conf.AWS.KEYNAME,
-    SubnetId: conf.AWS.SUBNETID,
+    ImageId: conf.AWS.IMAGEID
+    MaxCount: 1
+    MinCount: 1
+    KeyName: conf.AWS.KEYNAME
+    SubnetId: conf.AWS.SUBNETID
     SecurityGroupIds: conf.AWS.SECURITYGROUPIDS
-  user_params = _.pick(opts, 'InstanceType', 'UserData')
+  user_params = _.pick(opts, 'InstanceType')
   _.extend(instance_params, user_params, required_params)
 
   # TODO should there be config defaults? none of these
@@ -80,6 +80,12 @@ instances.create_instance = (opts) ->
     CreateDate: new Date().toISOString().split('T')[0]
 
   _.extend(tags, user_tags, required_tags)
+
+  # TODO find a better way to insert values to user data
+  user_data = conf.AWS.USERDATA
+  user_data = user_data.replace('<HOSTNAME>', tags.Name)
+
+  instance_params.UserData = new Buffer(user_data).toString('base64')
 
   # create instance via AWS API
   ec2.runInstances(instance_params).then((data) ->
@@ -116,6 +122,10 @@ instances.get_instances = () ->
             # any existing instances
             conf.AWS.KEYNAME
           ]
+      },
+      {
+          Name: 'instance-state-name',
+          Values: ['pending', 'running', 'stopping', 'stopped']
       }
     ]
   }
@@ -133,9 +143,26 @@ instances.handle_get_instances = (req, resp) ->
 instances.get_instance = (instance_id) ->
   params = {
     InstanceIds: [instance_id]
+    Filters: [
+      {
+          Name: 'key-name',
+          Values: [
+            # TODO consider a better way of pulling moirai machines.
+            # With this solution, changing the config key will "lose"
+            # any existing instances
+            conf.AWS.KEYNAME
+          ]
+      },
+      {
+          Name: 'instance-state-name',
+          Values: ['pending', 'running', 'stopping', 'stopped']
+      }
+    ]
   }
 
   ec2.describeInstances(params).then((data) ->
+    if not data.Reservations.length
+      return Promise.reject('Unrecognized instance ID: ' + instance_id)
     Promise.resolve(prepareInstances(data)[0])
   )
 
