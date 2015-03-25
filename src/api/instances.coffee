@@ -62,9 +62,8 @@ instances.create_instance = (opts) ->
   tags =
     Name: "AWSDEVMOIRAI", # TODO generate this
     Application: '',
-    Creator: 'default.user@example.com', # TODO figure this out
-    Software: '',
-    BusinessOwner: '',
+    Owner: 'default.user@example.com', # TODO figure this out
+    Cluster: 'moirai',
     Description: '',
 
   # TODO should we blindly accept tags? Only tags we plan on
@@ -75,8 +74,7 @@ instances.create_instance = (opts) ->
   # should be hardcoded
   required_tags =
     Domain: 'dev',
-    PuppetRole: '',
-    SysAdmin: 'SE',
+    Role: '',
     CreateDate: new Date().toISOString().split('T')[0]
 
   _.extend(tags, user_tags, required_tags)
