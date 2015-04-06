@@ -6,10 +6,10 @@ _ = require('underscore')
 describe 'c+', () ->
     beforeEach () ->
         spyOn(ec2Client, 'createInstance').andCallFake((instance) ->
-            if instance.id == 'ec855ef9-45c4-45bc-a4d3-f930e158579c'
+            if instance.id == 'passing-instance'
                 return Promise.resolve({
                     InstanceId: 'randominstanceid'
-                    InstanceType: 'ti.micro'
+                    InstanceType: 't1.micro'
                     KeyName: 'moirai'
                     Tags: [
                         {Key: 'Name', Value: 'awsdevtestname'}
@@ -25,22 +25,22 @@ describe 'c+', () ->
                         InstanceType: 't1.micro'
                         tags:
                             Name: 'awsdevtestname'
-                        id: 'ec855ef9-45c4-45bc-a4d3-f930e158579c'
+                        id: 'passing-instance'
                     ,
                         InstanceType: 't1.medium'
                         tags:
                             Name: 'awsdevtestname2'
-                        id: '5d8fc7d9-6233-46c7-b71f-d59b4ba9098f'
+                        id: 'bad-instance'
                 ],
                 name: 'a_cluster'
         }
         this.doc =
             instances: [
-                    id: 'ec855ef9-45c4-45bc-a4d3-f930e158579c'
+                    id: 'passing-instance'
                     name: 'awsdevtestname'
                     size: 't1.micro'
                 ,
-                    id: '5d8fc7d9-6233-46c7-b71f-d59b4ba9098f'
+                    id: 'bad-instance'
                     name: 'awsdevtestname2'
                     size: 't1.medium'
             ]
@@ -69,7 +69,7 @@ describe 'c+', () ->
         ).catch((err) ->
             expect(_.where(err.data.instances, {aws_id: 'randominstanceid'}).length).toEqual(1)
             instance = _.findWhere(err.data.instances, {aws_id: 'randominstanceid'})
-            expect(instance.id).toEqual('ec855ef9-45c4-45bc-a4d3-f930e158579c')
+            expect(instance.id).toEqual('passing-instance')
             expect(instance.state).toEqual(undefined)
             done()
         )
@@ -80,13 +80,13 @@ describe 'c+', () ->
             done('Test failed, promise should have been rejected but was resolved')
         ).catch((err) ->
             expect(_.where(err.data.instances, {state: 'create_failed'}).length).toEqual(1)
-            expect(_.findWhere(err.data.instances, {state: 'create_failed'}).id).toEqual('5d8fc7d9-6233-46c7-b71f-d59b4ba9098f')
+            expect(_.findWhere(err.data.instances, {state: 'create_failed'}).id).toEqual('bad-instance')
             done()
         )
 
     it 'resolves if no instances failed', (done) ->
         cut = handlers.cluster['c+']
-        failing_instance = _.findWhere(this.event.record.instances, {id: '5d8fc7d9-6233-46c7-b71f-d59b4ba9098f'})
+        failing_instance = _.findWhere(this.event.record.instances, {id: 'bad-instance'})
         passing_event = this.event
         passing_event.record.instances = _.without(this.event.record.instances, failing_instance)
         cut(passing_event, this.doc).catch((err) ->
@@ -94,7 +94,7 @@ describe 'c+', () ->
         ).then((result) ->
             expect(_.where(result.data.instances, {aws_id: 'randominstanceid'}).length).toEqual(1)
             instance = _.findWhere(result.data.instances, {aws_id: 'randominstanceid'})
-            expect(instance.id).toEqual('ec855ef9-45c4-45bc-a4d3-f930e158579c')
+            expect(instance.id).toEqual('passing-instance')
             expect(instance.state).toEqual(undefined)
             done()
         )
@@ -116,7 +116,7 @@ describe 'c+', () ->
 
     it 'returns updated instance status in data when resolving', (done) ->
         cut = handlers.cluster['c+']
-        failing_instance = _.findWhere(this.event.record.instances, {id: '5d8fc7d9-6233-46c7-b71f-d59b4ba9098f'})
+        failing_instance = _.findWhere(this.event.record.instances, {id: 'bad-instance'})
         passing_event = this.event
         passing_event.record.instances = _.without(this.event.record.instances, failing_instance)
         for instance in this.doc.instances
@@ -138,51 +138,111 @@ describe 'c+', () ->
             expect(err.data.instances.length).toEqual(2)
             expect(_.where(err.data.instances, {aws_id: 'randominstanceid'}).length).toEqual(1)
             expect(_.where(err.data.instances, {state: 'create_failed'}).length).toEqual(1)
-            expect(_.findWhere(err.data.instances, {state: 'create_failed'}).id).toEqual('5d8fc7d9-6233-46c7-b71f-d59b4ba9098f')
+            expect(_.findWhere(err.data.instances, {state: 'create_failed'}).id).toEqual('bad-instance')
             new_doc = _.clone(this.doc)
             new_doc.instances = err.data.instances
             cut(this.event, new_doc)
         ).then(() ->
-            done('Test failed, promise should have been rejected but was not')
+            done('Test failed, promise should have been rejected but was resolved')
         ).catch((err) ->
             # the second time cut is run, expect the call count to increment by one
             expect(ec2Client.createInstance.calls.length).toEqual(3)
             expect(err.data.instances.length).toEqual(2)
             expect(_.where(err.data.instances, {aws_id: 'randominstanceid'}).length).toEqual(1)
             expect(_.where(err.data.instances, {state: 'create_failed'}).length).toEqual(1)
-            expect(_.findWhere(err.data.instances, {state: 'create_failed'}).id).toEqual('5d8fc7d9-6233-46c7-b71f-d59b4ba9098f')
+            expect(_.findWhere(err.data.instances, {state: 'create_failed'}).id).toEqual('bad-instance')
+            done()
+        )
+
+    it 'does not create an instance if the state is terminate', (done) ->
+        cut = handlers.cluster['c+']
+        for instance in this.doc.instances
+            instance.state = 'terminate'
+        cut(this.event, this.doc).catch(() ->
+            done('Test failed, promise should have resolved but was rejected')
+        ).then(() ->
+            expect(ec2Client.createInstance.calls.length).toEqual(0)
+            done()
+        )
+
+    it 'does not create an instance if the state is terminate_failed', (done) ->
+        cut = handlers.cluster['c+']
+        for instance in this.doc.instances
+            instance.state = 'terminate'
+        cut(this.event, this.doc).catch(() ->
+            done('Test failed, promise should have resolved but was rejected')
+        ).then(() ->
+            expect(ec2Client.createInstance.calls.length).toEqual(0)
+            done()
+        )
+
+    it 'creates an instance if the state is a random value', (done) ->
+        cut = handlers.cluster['c+']
+        for instance in this.doc.instances
+            instance.state = 'do_term'
+        cut(this.event, this.doc).then(() ->
+            done('Test failed, promise should have been rejected but was resolved')
+        ).catch(() ->
+            expect(ec2Client.createInstance.calls.length).toEqual(2)
+            done()
+        )
+
+    it 'does not create an instance if the aws_id already exists', (done) ->
+        cut = handlers.cluster['c+']
+        for instance in this.doc.instances
+            instance.aws_id = 'some_aws_id'
+        cut(this.event, this.doc).catch(() ->
+            done('Test failed, promise should have resolved but was rejected')
+        ).then(() ->
+            expect(ec2Client.createInstance.calls.length).toEqual(0)
+            done()
+        )
+
+    it 'creates an instance if the aws_id does not exist', (done) ->
+        cut = handlers.cluster['c+']
+        for instance in this.doc.instances
+            instance.aws_id = undefined
+        cut(this.event, this.doc).then(() ->
+            done('Test failed, promise should have been rejected but was resolved')
+        ).catch(() ->
+            expect(ec2Client.createInstance.calls.length).toEqual(2)
             done()
         )
 
 describe 'c-', () ->
     beforeEach () ->
         spyOn(ec2Client, 'destroyInstance').andCallFake((aws_id) ->
-            if aws_id
-                return Promise.resolve()
-            else
+            if aws_id == 'bad-instanceid'
                 return Promise.reject('There was an error destroying the instance')
+            else
+                return Promise.resolve()
         )
         this.event = {
             a: 'c-'
         }
         this.doc =
             instances: [
-                    id: 'ec855ef9-45c4-45bc-a4d3-f930e158579c'
+                    id: 'passing-instance'
                     name: 'awsdevtestname'
                     size: 't1.micro'
                     aws_id: 'randominstanceid'
                 ,
-                    id: '5d8fc7d9-6233-46c7-b71f-d59b4ba9098f'
+                    id: 'incomplete-instance'
                     name: 'awsdevtestname2'
                     size: 't1.medium'
+                ,
+                    id: 'bad-instance'
+                    name: 'awsdevtestname3'
+                    size: 't1.large'
+                    aws_id: 'bad-instanceid'
             ]
 
     it 'passes instances with aws_id to destroyInstance', (done) ->
         cut = handlers.cluster['c-']
         cut(this.event, this.doc).then(() ->
             done('Test failed, promise should have been rejected but was resolved')
-        ).catch((err) ->
-            expect(ec2Client.destroyInstance.calls.length).toEqual(1)
+        ).catch(() ->
+            expect(ec2Client.destroyInstance.calls.length).toEqual(2)
             done()
         )
 
@@ -190,7 +250,7 @@ describe 'c-', () ->
         cut = handlers.cluster['c-']
         cut(this.event, this.doc).then(() ->
             done('Test failed, promise should have been rejected but was resolved')
-        ).catch((err) ->
+        ).catch(() ->
             done()
         )
 
@@ -199,8 +259,9 @@ describe 'c-', () ->
         cut(this.event, this.doc).then(() ->
             done('Test failed, promise should have been rejected but was resolved')
         ).catch((err) ->
-            expect(err.data.instances.length).toEqual(1)
-            expect(err.data.instances[0].aws_id).toEqual(undefined)
+            expect(_.where(err.data.instances, {id: 'passing-instance'}).length).toEqual(0)
+            expect(_.where(err.data.instances, {id: 'incomplete-instance'}).length).toEqual(1)
+            expect(_.where(err.data.instances, {id: 'bad-instance'}).length).toEqual(1)
             done()
         )
 
@@ -209,23 +270,33 @@ describe 'c-', () ->
         cut(this.event, this.doc).then(() ->
             done('Test failed, promise should have been rejected but was resolved')
         ).catch((err) ->
-            expect(err.data.instances.length).toEqual(1)
-            instance = err.data.instances[0]
-            expect(err.data.instances[0].state).toEqual('terminate_failed')
+            instance = _.findWhere(err.data.instances, {id: 'bad-instance'})
+            expect(instance.state).toEqual('terminate_failed')
+            done()
+        )
+
+    it 'does not modify an instance that has no aws_id', (done) ->
+        cut = handlers.cluster['c-']
+        cut(this.event, this.doc).then(() ->
+            done('Test failed, promise should have been rejected but was resolved')
+        ).catch((err) ->
+            instance = _.findWhere(err.data.instances, {id: 'incomplete-instance'})
+            expect(instance.aws_id).toEqual(undefined)
+            expect(instance.state).toEqual(undefined)
             done()
         )
 
     it 'resolves if no instances failed', (done) ->
         cut = handlers.cluster['c-']
-        #failing_instance = _.findWhere(this.doc.instances, {aws_id: '5d8fc7d9-6233-46c7-b71f-d59b4ba9098f'})
         passing_doc = this.doc
         passing_doc.instances = _.reject(this.doc.instances, (instance) ->
-            return not instance.aws_id?
+            return instance.id == 'bad-instance'
         )
-        expect(passing_doc.instances.length).toEqual(1)
+        expect(passing_doc.instances.length).toEqual(2)
         cut(this.event, passing_doc).catch((err) ->
             done('Test failed, promise should have been resolved but was rejected')
         ).then((result) ->
-            expect(result.data.instances.length).toEqual(0)
+            expect(result.data.instances.length).toEqual(1)
+            expect(_.where(result.data.instances, {id: 'incomplete-instance'}).length).toEqual(1)
             done()
         )

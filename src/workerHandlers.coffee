@@ -51,14 +51,18 @@ handlers = {
         if instance.aws_id != undefined
           instance_promises[instance.id] = ec2Client.destroyInstance(instance.aws_id)
         else
-          instance_promises[instance.id] = Promise.reject("No aws_id for cluster " + instance.id)
+          # potential case where the worker hasn't created the instance yet
+          instance_promises[instance.id] = Promise.resolve()
       )
 
       Promise.hashResolveAll(instance_promises).then((results) ->
         failed = false
         _.each(results, (result, instance_id) ->
           instance = _.findWhere(doc.instances, {id: instance_id})
-          if result.state == 'resolved'
+          # don't remove the instance if aws_id doesn't exist yet
+          if not instance.aws_id?
+            null # do nothing
+          else if result.state == 'resolved'
             doc.instances.splice(doc.instances.indexOf(instance), 1)
           else
             instance.error = result.error
@@ -71,38 +75,6 @@ handlers = {
           return Promise.resolve({data: {instances: doc.instances}, path: []})
       )
       
-    
-
-
-#      Promise.hashResolveAll(instance_promises).then((results) ->
-#        notCompletelyFailed = false
-#        _.each(results, (result, instance_id) ->
-#          instance = _.findWhere(doc.instances, {id: instance_id})
-#          if result.state == 'resolved'
-#            instance.aws_id = result.value.InstanceId
-#            notCompletelyFailed = True
-#          else
-#            instance.state = 'create_failed'
-#            instance.error = result.error
-#        )
-#        if notCompletelyFailed
-#          return Promise.resolve(doc.instances)
-#        else
-#          return Promise.reject(results)
-#      )
-      
-#      'c-': (event, doc) ->
-#        Promise.resolve({})
-    
 }
-
-#get_handler_data_path = (doc_type, rsrc) ->
-#  return ['moirai']
-
-#get_doc_type = (doc) ->
-#  throw new Error('not implemented')
-
-# _users worker
-
 
 module.exports = handlers
