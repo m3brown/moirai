@@ -1,22 +1,32 @@
 Promise = require('pantheon-helpers/lib/promise')
+conf = require('../lib/config')
+conf.AWS.STARTUP_SECONDS = .01
 handlers = require('../lib/workerHandlers')
 ec2Client = require('../lib/ec2Client')
+ec2KeyManagement = require('../lib/ec2KeyManagement')
 _ = require('underscore')
 
 describe 'c+', () ->
     beforeEach () ->
         spyOn(ec2Client, 'createInstance').andCallFake((instance) ->
-            if instance.id == 'passing-instance'
+            if instance.id == 'bad-instance'
+                return Promise.reject('There was an error creating the instance')
+            else
                 return Promise.resolve({
-                    InstanceId: 'randominstanceid'
+                    InstanceId: 'instanceid-' + instance.id
                     InstanceType: 't1.micro'
+                    PrivateIpAddress: 'ip-' + instance.id # dummy value 
                     KeyName: 'moirai'
                     Tags: [
                         {Key: 'Name', Value: 'awsdevtestname'}
                     ]
                 })
-            else
-                return Promise.reject('There was an error creating the instance')
+        )
+        spyOn(ec2KeyManagement, 'addSSHKeys').andCallFake((host, pubkeys) ->
+            for pubkey in pubkeys
+                if pubkey == 'failing_key'
+                    return Promise.reject('failing_key')
+            return Promise.resolve()
         )
         this.event = {
             a: 'c+'
@@ -31,6 +41,11 @@ describe 'c+', () ->
                         tags:
                             Name: 'awsdevtestname2'
                         id: 'bad-instance'
+                ],
+                keys: [
+                    'key1'
+                    'key2'
+                    'key3'
                 ],
                 name: 'a_cluster'
         }
@@ -67,8 +82,8 @@ describe 'c+', () ->
         cut(this.event, this.doc).then(() ->
             done('Test failed, promise should have been rejected but was resolved')
         ).catch((err) ->
-            expect(_.where(err.data.instances, {aws_id: 'randominstanceid'}).length).toEqual(1)
-            instance = _.findWhere(err.data.instances, {aws_id: 'randominstanceid'})
+            expect(_.where(err.data.instances, {aws_id: 'instanceid-passing-instance'}).length).toEqual(1)
+            instance = _.findWhere(err.data.instances, {aws_id: 'instanceid-passing-instance'})
             expect(instance.id).toEqual('passing-instance')
             expect(instance.state).toEqual(undefined)
             done()
@@ -92,8 +107,8 @@ describe 'c+', () ->
         cut(passing_event, this.doc).catch((err) ->
             done('Test failed, promise should have been resolved but was rejected')
         ).then((result) ->
-            expect(_.where(result.data.instances, {aws_id: 'randominstanceid'}).length).toEqual(1)
-            instance = _.findWhere(result.data.instances, {aws_id: 'randominstanceid'})
+            expect(_.where(result.data.instances, {aws_id: 'instanceid-passing-instance'}).length).toEqual(1)
+            instance = _.findWhere(result.data.instances, {aws_id: 'instanceid-passing-instance'})
             expect(instance.id).toEqual('passing-instance')
             expect(instance.state).toEqual(undefined)
             done()
@@ -109,7 +124,7 @@ describe 'c+', () ->
         cut(this.event, this.doc).then(() ->
             done('Test failed, promise should have been rejected but was resolved')
         ).catch((err) ->
-            expect(_.where(err.data.instances, {aws_id: 'randominstanceid'}).length).toEqual(1)
+            expect(_.where(err.data.instances, {aws_id: 'instanceid-passing-instance'}).length).toEqual(1)
             expect(_.where(err.data.instances, {state: 'create_failed'}).length).toEqual(1)
             done()
         )
@@ -127,7 +142,7 @@ describe 'c+', () ->
         cut(passing_event, this.doc).catch((err) ->
             done('Test failed, promise should have been resolved but was rejected')
         ).then((result) ->
-            expect(_.where(result.data.instances, {aws_id: 'randominstanceid'}).length).toEqual(1)
+            expect(_.where(result.data.instances, {aws_id: 'instanceid-passing-instance'}).length).toEqual(1)
             done()
         )
 
@@ -136,7 +151,7 @@ describe 'c+', () ->
         cut(this.event, this.doc).catch((err) =>
             expect(ec2Client.createInstance.calls.length).toEqual(2)
             expect(err.data.instances.length).toEqual(2)
-            expect(_.where(err.data.instances, {aws_id: 'randominstanceid'}).length).toEqual(1)
+            expect(_.where(err.data.instances, {aws_id: 'instanceid-passing-instance'}).length).toEqual(1)
             expect(_.where(err.data.instances, {state: 'create_failed'}).length).toEqual(1)
             expect(_.findWhere(err.data.instances, {state: 'create_failed'}).id).toEqual('bad-instance')
             new_doc = _.clone(this.doc)
@@ -148,7 +163,7 @@ describe 'c+', () ->
             # the second time cut is run, expect the call count to increment by one
             expect(ec2Client.createInstance.calls.length).toEqual(3)
             expect(err.data.instances.length).toEqual(2)
-            expect(_.where(err.data.instances, {aws_id: 'randominstanceid'}).length).toEqual(1)
+            expect(_.where(err.data.instances, {aws_id: 'instanceid-passing-instance'}).length).toEqual(1)
             expect(_.where(err.data.instances, {state: 'create_failed'}).length).toEqual(1)
             expect(_.findWhere(err.data.instances, {state: 'create_failed'}).id).toEqual('bad-instance')
             done()
@@ -209,6 +224,54 @@ describe 'c+', () ->
             done()
         )
 
+    it 'runs addSSHKeys if keys are provided', (done) ->
+        cut = handlers.cluster['c+']
+        passing_instance = _.findWhere(this.event.record.instances, {id: 'passing-instance'})
+        this.event.record.instances = [passing_instance]
+        cut(this.event, this.doc).catch(() ->
+            done('Test failed, promise should have been resolved but was rejected')
+        ).then((result) =>
+            expect(ec2KeyManagement.addSSHKeys.calls.length).toEqual(1)
+            expect(ec2KeyManagement.addSSHKeys).toHaveBeenCalledWith('ip-passing-instance', this.event.record.keys)
+            done()
+        )
+
+    # TODO discuss the best way to handle this scneario
+    it 'resolves even if addSSHKeys fails', (done) ->
+        cut = handlers.cluster['c+']
+        passing_instance = _.findWhere(this.event.record.instances, {id: 'passing-instance'})
+        this.event.record.instances = [passing_instance]
+        this.event.record.keys = [
+            'failing_key',
+        ]
+        cut(this.event, this.doc).catch(() ->
+            done('Test failed, promise should have been resolved but was rejected')
+        ).then((result) =>
+            expect(ec2KeyManagement.addSSHKeys.calls.length).toEqual(1)
+            expect(ec2KeyManagement.addSSHKeys).toHaveBeenCalledWith('ip-passing-instance', this.event.record.keys)
+            done()
+        )
+
+    it 'only runs addSSHKeys for hosts that were created', (done) ->
+        cut = handlers.cluster['c+']
+        cut(this.event, this.doc).then(() ->
+            done('Test failed, promise should have been rejected but was resolved')
+        ).catch((err) =>
+            expect(ec2KeyManagement.addSSHKeys.calls.length).toEqual(1)
+            expect(ec2KeyManagement.addSSHKeys).toHaveBeenCalledWith('ip-passing-instance', this.event.record.keys)
+            done()
+        )
+
+    it 'does not run addSSHKeys if keys are not provided', (done) ->
+        cut = handlers.cluster['c+']
+        this.event.record.keys = []
+        cut(this.event, this.doc).then(() ->
+            done('Test failed, promise should have been rejected but was resolved')
+        ).catch((err) ->
+            expect(ec2KeyManagement.addSSHKeys.calls.length).toEqual(0)
+            done()
+        )
+
 describe 'c-', () ->
     beforeEach () ->
         spyOn(ec2Client, 'destroyInstance').andCallFake((aws_id) ->
@@ -225,7 +288,7 @@ describe 'c-', () ->
                     id: 'passing-instance'
                     name: 'awsdevtestname'
                     size: 't1.micro'
-                    aws_id: 'randominstanceid'
+                    aws_id: 'instanceid-passing-instance'
                 ,
                     id: 'incomplete-instance'
                     name: 'awsdevtestname2'

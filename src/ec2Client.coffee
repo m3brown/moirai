@@ -48,8 +48,7 @@ instances.generateParams = (opts) ->
 
 
 instances.generateTags = (userTags) ->
-  # TODO should there be config defaults? none of these
-  # should be hardcoded
+  # TODO  pull out of ec2Client
   tags =
     Name: "AWSDEVMOIRAI", # TODO generate this
     Application: '',
@@ -75,7 +74,7 @@ instances.generateTags = (userTags) ->
 
 
 instances.generateUserData = (opts, params, tags) ->
-  # TODO find a better way to insert values to user data
+  # TODO pull out of ec2Client
   userData = conf.AWS.USERDATA
   userData = userData.replace('<HOSTNAME>', tags.Name)
   return userData
@@ -88,7 +87,6 @@ instances.createInstance = (opts) ->
   tags = ({'Key': key, 'Value': value} for key,value of tagsHash)
   userDataText = instances.generateUserData(opts, params, tags)
   userData = new Buffer(userDataText).toString('base64')
-
 
   # create instance via AWS API
   instances.ec2.runInstances(params).then((data) ->
@@ -107,8 +105,9 @@ instances.createInstance = (opts) ->
   )
 
 
-instances.get_instances = () ->
+instances.getInstances = (instancesIds=undefined) ->
   params = {
+    InstanceIds: instanceIds
     Filters: [
       {
           Name: 'key-name',
@@ -129,53 +128,12 @@ instances.get_instances = () ->
     Promise.resolve(instances.prepareInstances(data))
   )
 
-instances.handle_get_instances = (req, resp) ->
-  instances.get_instances().then((data) ->
-    return resp.status(201).send(JSON.stringify(data))
-  ).catch((err) ->
-    return resp.status(500).send(JSON.stringify({error: 'internal error', msg: String(err)}))
+
+instances.getSingleInstance = (instance_id) ->
+  instances.getInstances([instance_id]).then((data) ->
+    Promise.resolve(data[0])
   )
 
-instances.get_instance = (instance_id) ->
-  params = {
-    InstanceIds: [instance_id]
-    Filters: [
-      {
-          Name: 'key-name',
-          Values: [
-            # TODO consider a better way of pulling moirai machines.
-            # With this solution, changing the config key will "lose"
-            # any existing instances
-            conf.AWS.KEYNAME
-          ]
-      },
-      {
-          Name: 'instance-state-name',
-          Values: ['pending', 'running', 'stopping', 'stopped']
-      }
-    ]
-  }
-
-  instances.ec2.describeInstances(params).then((data) ->
-    if not data.Reservations.length
-      return Promise.reject('Unrecognized instance ID: ' + instance_id)
-    Promise.resolve(instances.prepareInstances(data)[0])
-  )
-
-instances.handle_get_instance = (req, resp) ->
-  instance_id = req.params.instance_id
-  instances.get_instance(instance_id).then((data) ->
-    return resp.status(201).send(JSON.stringify(data))
-  ).catch((err) ->
-    return resp.status(500).send(JSON.stringify({error: 'internal error', msg: String(err)}))
-  )
-
-
-instances.handle_update_instance = (req, resp) ->
-  # TODO determine what updates are available
-  # name
-  # instance type (requires shutdown)
-  resp.send('NOT IMPLEMENTED')
 
 instances.destroyInstance = (aws_id) ->
   params = {

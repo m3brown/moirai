@@ -1,5 +1,7 @@
 _ = require('underscore')
+conf = require('./config')
 ec2Client = require('./ec2Client')
+ec2KeyManagement = require('./ec2KeyManagement')
 Promise = require('pantheon-helpers/lib/promise')
 
 handlers = {
@@ -14,7 +16,18 @@ handlers = {
             (not instance.state or instance.state.indexOf('terminate') < 0) and
             not instance.aws_id?
           event_instance.ClientToken = instance.id
-          instance_promises[event_instance.id] = ec2Client.createInstance(event_instance)
+          instance_promises[event_instance.id] =
+            # First create the instance
+            ec2Client.createInstance(event_instance).then((result) ->
+              # Next, wait for the machine to boot, and add the SSH keys
+              if not event.record.keys?.length > 0
+                return Promise.resolve(result)
+              Promise.setTimeout((conf.AWS.STARTUP_SECONDS or 30) * 1000).then(() =>
+                ec2KeyManagement.addSSHKeys(result.PrivateIpAddress, event.record.keys)
+                # TODO figure out how to handle addSSHKeys failure
+                return Promise.resolve(result)
+              )
+            )
       )
 
 
@@ -28,6 +41,7 @@ handlers = {
           instance = _.findWhere(doc.instances, {id: instance_id})
           if result.state == 'resolved'
             instance.aws_id = result.value.InstanceId
+            instance.ip = result.value.PrivateIpAddress
             delete instance.error
           else
             instance.state = 'create_failed'
