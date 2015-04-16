@@ -16,20 +16,8 @@ handlers = {
             (not instance.state or instance.state.indexOf('terminate') < 0) and
             not instance.aws_id?
           event_instance.ClientToken = instance.id
-          instance_promises[event_instance.id] =
-            # First create the instance
-            ec2Client.createInstance(event_instance).then((result) ->
-              # Next, wait for the machine to boot, and add the SSH keys
-              if not event.record.keys?.length > 0
-                return Promise.resolve(result)
-              Promise.setTimeout((conf.AWS.STARTUP_SECONDS or 30) * 1000).then(() =>
-                ec2KeyManagement.addSSHKeys(result.PrivateIpAddress, event.record.keys)
-                # TODO figure out how to handle addSSHKeys failure
-                return Promise.resolve(result)
-              )
-            )
+          instance_promises[event_instance.id] = ec2Client.createInstance(event_instance)
       )
-
 
       # if for some reason all the instances were already created, mark the job as complete
       if _.isEmpty(instance_promises)
@@ -89,6 +77,15 @@ handlers = {
           return Promise.resolve({data: {instances: doc.instances}, path: []})
       )
       
+    # set cluster keys
+    'k': (event, doc) ->
+      promiseList = _.each(doc.instances, (instance) ->
+        ec2KeyManagement.setSSHKeys(instance, doc.keys)
+      )
+      Promise.all(promiseList).then(() ->
+        return Promise.resolve()
+      )
+
 }
 
 module.exports = handlers

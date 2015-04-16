@@ -15,6 +15,8 @@ a.do_actions = {
             doc.instances.forEach((instance) ->
                 instance.state = 'terminate'
             )
+        'k': (doc, action, actor) ->
+            doc.keys = action.keys
     },
     create: {
         'c+': (doc, action, actor) ->
@@ -37,6 +39,22 @@ a.validate_actions = {
     cluster: {
         'c+': (event, actor, old_doc, new_doc) ->
         'c-': (event, actor, old_doc, new_doc) ->
+        'k': (event, actor, old_doc, new_doc) ->
+          if not _.isArray(event.keys)
+            throw({
+              state: 'invalid',
+              err: '`keys` should be an array, but got ' + JSON.stringify(event.keys)
+            })
+
+          isPubKeyValid = (key) ->
+            return key.match(/^ssh-rsa AAAA[0-9A-Za-z+/]+[=]{0,3} [0-9A-Za-z.-]+(@[0-9A-Za-z.-]+)?$/)
+
+          for key in event.keys
+            if not isPubKeyValid(key)
+              throw({
+                state: 'invalid',
+                err: 'invalid public key: '+key
+              })
     }
 }
 

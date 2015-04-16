@@ -69,4 +69,13 @@ clusters.handle_add_instance = (req, resp) ->
 clusters.handle_update_cluster = (req, resp) ->
   resp.send('NOT IMPLEMENTED')
 
+clusters.set_keys = (db_client, cluster_id, keys, callback) ->
+  db = db_client.use('moirai')
+  return doAction(db, 'moirai', cluster_id, {a: 'k', keys: keys}, callback)
+
+clusters.handle_set_keys = (req, resp) ->
+  cluster_id = 'cluster_' + req.params.cluster_id
+  keys = req.body or []
+  clusters.set_keys(req.couch, cluster_id, keys).pipe(resp)
+
 module.exports = clusters

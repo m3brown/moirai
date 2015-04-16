@@ -19,7 +19,7 @@ instances.prepareInstances = (resp_object) ->
 ec2PromiseClient = (ec2_opts) ->
   ec2 = new aws.EC2(ec2_opts)
   client = {}
-  ['createTags', 'describeInstances', 'runInstances', 'terminateInstances'].forEach((method) ->
+  ['createTags', 'describeInstances', 'runInstances', 'terminateInstances', 'startInstances', 'stopInstances'].forEach((method) ->
     client[method] = Promise.denodeify(ec2[method]).bind(ec2)
   )
   return client
@@ -133,6 +133,22 @@ instances.getSingleInstance = (instance_id) ->
   instances.getInstances([instance_id]).then((data) ->
     Promise.resolve(data[0])
   )
+
+
+instances.startInstance = (aws_id) ->
+  params = {
+    InstanceIds: [aws_id]
+  }
+
+  instances.ec2.startInstances(params)
+
+
+instances.stopInstance = (aws_id) ->
+  params = {
+    InstanceIds: [aws_id]
+  }
+
+  instances.ec2.stopInstances(params)
 
 
 instances.destroyInstance = (aws_id) ->

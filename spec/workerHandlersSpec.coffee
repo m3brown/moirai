@@ -1,6 +1,6 @@
 Promise = require('pantheon-helpers/lib/promise')
 conf = require('../lib/config')
-conf.AWS.STARTUP_SECONDS = .01
+conf.AWS.STARTUP_SECONDS = 0.01
 handlers = require('../lib/workerHandlers')
 ec2Client = require('../lib/ec2Client')
 ec2KeyManagement = require('../lib/ec2KeyManagement')
@@ -21,12 +21,6 @@ describe 'c+', () ->
                         {Key: 'Name', Value: 'awsdevtestname'}
                     ]
                 })
-        )
-        spyOn(ec2KeyManagement, 'addSSHKeys').andCallFake((host, pubkeys) ->
-            for pubkey in pubkeys
-                if pubkey == 'failing_key'
-                    return Promise.reject('failing_key')
-            return Promise.resolve()
         )
         this.event = {
             a: 'c+'
@@ -224,54 +218,6 @@ describe 'c+', () ->
             done()
         )
 
-    it 'runs addSSHKeys if keys are provided', (done) ->
-        cut = handlers.cluster['c+']
-        passing_instance = _.findWhere(this.event.record.instances, {id: 'passing-instance'})
-        this.event.record.instances = [passing_instance]
-        cut(this.event, this.doc).catch(() ->
-            done('Test failed, promise should have been resolved but was rejected')
-        ).then((result) =>
-            expect(ec2KeyManagement.addSSHKeys.calls.length).toEqual(1)
-            expect(ec2KeyManagement.addSSHKeys).toHaveBeenCalledWith('ip-passing-instance', this.event.record.keys)
-            done()
-        )
-
-    # TODO discuss the best way to handle this scneario
-    it 'resolves even if addSSHKeys fails', (done) ->
-        cut = handlers.cluster['c+']
-        passing_instance = _.findWhere(this.event.record.instances, {id: 'passing-instance'})
-        this.event.record.instances = [passing_instance]
-        this.event.record.keys = [
-            'failing_key',
-        ]
-        cut(this.event, this.doc).catch(() ->
-            done('Test failed, promise should have been resolved but was rejected')
-        ).then((result) =>
-            expect(ec2KeyManagement.addSSHKeys.calls.length).toEqual(1)
-            expect(ec2KeyManagement.addSSHKeys).toHaveBeenCalledWith('ip-passing-instance', this.event.record.keys)
-            done()
-        )
-
-    it 'only runs addSSHKeys for hosts that were created', (done) ->
-        cut = handlers.cluster['c+']
-        cut(this.event, this.doc).then(() ->
-            done('Test failed, promise should have been rejected but was resolved')
-        ).catch((err) =>
-            expect(ec2KeyManagement.addSSHKeys.calls.length).toEqual(1)
-            expect(ec2KeyManagement.addSSHKeys).toHaveBeenCalledWith('ip-passing-instance', this.event.record.keys)
-            done()
-        )
-
-    it 'does not run addSSHKeys if keys are not provided', (done) ->
-        cut = handlers.cluster['c+']
-        this.event.record.keys = []
-        cut(this.event, this.doc).then(() ->
-            done('Test failed, promise should have been rejected but was resolved')
-        ).catch((err) ->
-            expect(ec2KeyManagement.addSSHKeys.calls.length).toEqual(0)
-            done()
-        )
-
 describe 'c-', () ->
     beforeEach () ->
         spyOn(ec2Client, 'destroyInstance').andCallFake((aws_id) ->
@@ -361,5 +307,44 @@ describe 'c-', () ->
         ).then((result) ->
             expect(result.data.instances.length).toEqual(1)
             expect(_.where(result.data.instances, {id: 'incomplete-instance'}).length).toEqual(1)
+            done()
+        )
+
+
+describe 'k', () ->
+    beforeEach () ->
+        spyOn(ec2KeyManagement, 'setSSHKeys').andReturn(Promise.reject())
+        this.event = {
+            a: 'k'
+            keys: [
+                'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCiTE9GnjEQeL4wMiqAsCJteX67PF6rleStq7PGBPSkXkiyodW4VhPq30vTdwxLRSPAp6yB2QaASjgbmLU8SkoBZER9JFMUCuqblq2Ngz1SUvzD2wnV2IjBnVR1uBY2BF2VKH3m3VbnHduXSlpXitjm8jcua22tlB1Vd2Qz22/sOvRk/zUmCyN6DYC0SyHG8njRigWLgQU9Ir62geksPam+aN7n/fZAKsE9vZkCLcN3qBkMFbPnliMurs5KtFbJlZLYSil5QtBNK3bfLPbpAK0aLz/zmASr7FSLsvOvB30FDyKb/3Qm0uE2LkIknHvd34KcxmGmPGlAWl6vDdRd5SF5 Username1@RandomHost1.company',
+                'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCiTE9GnjEQeL4wMiqAsCJteX67PF6rleStq7PGBPSkXkiyodW4VhPq30vTdwxLRSPAp6yB2QaASjgbmLU8SkoBZER9JFMUCuqblq2Ngz1SUvzD2wnV2IjBnVR1uBY2BF2VKH3m3VbnHduXSlpXitjm8jcua22tlB1Vd2Qz22/sOvRk/zUmCyN6DYC0SyHG8njRigWLgQU9Ir62geksPam+aN7n/fZAKsE9vZkCLcN3qBkMFbPnliMurs5KtFbJlZLYSil5QtBNK3bfLPbpAK0aLz/zmASr7FSLsvOvB30FDyKb/3Qm0uE2LkIknHvd34KcxmGmPGlAWl6vDdRd5SF6 Username2@RandomHost2.company'
+            ]
+        }
+        this.doc =
+            instances: [
+                    id: 'passing-instance'
+                    ip: '1.1.1.1'
+                    aws_id: 'passing-instanceid'
+                ,
+                    id: 'bad-instance'
+                    ip: '2.2.2.2'
+                    aws_id: 'bad-instanceid'
+            ]
+
+    it 'passes instances to setSSHKeys', (done) ->
+        cut = handlers.cluster['k']
+        cut(this.event, this.doc).then(() ->
+            Promise.reject() # not testing reject/resolve in this test
+        ).catch(() ->
+            expect(ec2KeyManagement.setSSHKeys.calls.length).toEqual(2)
+            done()
+        )
+
+    it 'passes even if one or more instances failed', (done) ->
+        cut = handlers.cluster['k']
+        cut(this.event, this.doc).catch(() ->
+            done('Test failed, promise should have been resolved but was rejected')
+        ).then(() ->
             done()
         )

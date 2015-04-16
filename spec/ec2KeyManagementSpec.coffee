@@ -1,198 +1,161 @@
 conf = require('../lib/config')
 conf.AWS.PRIVATE_KEY_FILE = 'test-keyfile'
 conf.AWS.SSH_USER = 'test-user'
-ssh = require('promised-ssh')
-fs = require('fs')
 ec2KeyManagement = require('../lib/ec2KeyManagement')
+ec2Client = require('../lib/ec2Client')
 Promise = require('pantheon-helpers/lib/promise')
 
-describe 'addSSHKeys', () ->
+describe 'setSSHKeys', () ->
   beforeEach () ->
-    spyOn(fs, 'readFileSync').andCallFake((keyfile) ->
-      return 'key text'
-    #return "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCiTE9GnjEQeL4wMiqAsCJteX67PF6rleStq7PGBPSkXkiyodW4VhPq30vTdwxLRSPAp6yB2QaASjgbmLU8SkoBZER9JFMUCuqblq2Ngz1SUvzD2wnV2IjBnVR1uBY2BF2VKH3m3VbnHduXSlpXitjm8jcua22tlB1Vd2Qz22/sOvRk/zUmCyN6DYC0SyHG8njRigWLgQU9Ir62geksPam+aN7n/fZAKsE9vZkCLcN3qBkMFbPnliMurs5KtFbJlZLYSil5QtBNK3bfLPbpAK0aLz/zmASr7FSLsvOvB30FDyKb/3Qm0uE2LkIknHvd34KcxmGmPGlAWl6vDdRd5SF5 Username1@RandomHost2.company"
-    )
-    spyOn(ssh, 'connect').andCallFake((params) =>
+    spyOn(ec2KeyManagement, 'exec').andCallFake((command) =>
       if this.sshFailConnect
-        return Promise.reject(new ssh.errors.ConnectionError(params.username, params.host))
+        return Promise.reject({code: 1, signal: 0})
 
-      return Promise.resolve({
-        exec: (commands) ->
-          commands.map((command) ->
-            if command.match(new RegExp(this.failing_pubkey))
-              return Promise.reject(new ssh.errors.CommandExecutionError(command, 1, 'stdout', 'stderr'))
-            else
-              return Promise.resolve()
-          )
-      }) 
+      return Promise.resolve()
+    )
+    spyOn(ec2Client, 'startInstance').andCallFake((aws_id) =>
+      return Promise.resolve({State: {Name: 'running'}})
+    )
+    spyOn(ec2Client, 'stopInstance').andCallFake((aws_id) =>
+      return Promise.resolve({State: {Name: 'halted'}})
+    )
+    spyOn(Promise, 'setTimeout').andCallFake((seconds) =>
+      return Promise.resolve()
+    )
+    spyOn(ec2Client, 'getSingleInstance').andCallFake((aws_id) =>
+      if this.awsFailConnect
+        return Promise.reject("failed to connect")
+      if this.awsHaltedInstance
+        return Promise.resolve({State: {Name: 'halted'}})
+      if this.awsPendingInstance
+        return Promise.resolve({State: {Name: 'pending'}})
+      else
+        return Promise.resolve({State: {Name: 'running'}})
     )
     this.sshFailConnect = false
-    this.pubkey = 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCiTE9GnjEQeL4wMiqAsCJteX67PF6rleStq7PGBPSkXkiyodW4VhPq30vTdwxLRSPAp6yB2QaASjgbmLU8SkoBZER9JFMUCuqblq2Ngz1SUvzD2wnV2IjBnVR1uBY2BF2VKH3m3VbnHduXSlpXitjm8jcua22tlB1Vd2Qz22/sOvRk/zUmCyN6DYC0SyHG8njRigWLgQU9Ir62geksPam+aN7n/fZAKsE9vZkCLcN3qBkMFbPnliMurs5KtFbJlZLYSil5QtBNK3bfLPbpAK0aLz/zmASr7FSLsvOvB30FDyKb/3Qm0uE2LkIknHvd34KcxmGmPGlAWl6vDdRd5SF5 Username1@RandomHost1.company'
-    this.pubkey2 = 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCiTE9GnjEQeL4wMiqAsCJteX67PF6rleStq7PGBPSkXkiyodW4VhPq30vTdwxLRSPAp6yB2QaASjgbmLU8SkoBZER9JFMUCuqblq2Ngz1SUvzD2wnV2IjBnVR1uBY2BF2VKH3m3VbnHduXSlpXitjm8jcua22tlB1Vd2Qz22/sOvRk/zUmCyN6DYC0SyHG8njRigWLgQU9Ir62geksPam+aN7n/fZAKsE9vZkCLcN3qBkMFbPnliMurs5KtFbJlZLYSil5QtBNK3bfLPbpAK0aLz/zmASr7FSLsvOvB30FDyKb/3Qm0uE2LkIknHvd34KcxmGmPGlAWl6vDdRd5SF6 Username2@RandomHost2.company'
-    this.failing_pubkey = 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCiTE9GnjEQeL4wMiqAsCJteX67PF6rleStq7PGBPSkXkiyodW4VhPq30vTdwxLRSPAp6yB2QaASjgbmLU8SkoBZER9JFMUCuqblq2Ngz1SUvzD2wnV2IjBnVR1uBY2BF2VKH3m3VbnHduXSlpXitjm8jcua22tlB1Vd2Qz22/sOvRk/zUmCyN6DYC0SyHG8njRigWLgQU9Ir62geksPam+aN7n/fZAKsE9vZkCLcN3qBkMFbPnliMurs5KtFbJlZLYSil5QtBNK3bfLPbpAK0aLz/zmASr7FSLsvOvB30FDyKb/3Qm0uE2LkIknHvd34KcxmGmPGlAWl6vDdRd5SF5 Username2'
-
-  it 'does not try to connect if a badly formatted pubkey is provided', (done) ->
-    cut = ec2KeyManagement.addSSHKeys
-    pubkeys = [
-      "AAAAB3NzaC1yc2EAAAADAQABAAABAQCiTE9GnjEQeL4wMiqAsCJteX67PF6rleStq7PGBPSkXkiyodW4VhPq30vTdwxLRSPAp6yB2QaASjgbmLU8SkoBZER9JFMUCuqblq2Ngz1SUvzD2wnV2IjBnVR1uBY2BF2VKH3m3VbnHduXSlpXitjm8jcua22tlB1Vd2Qz22/sOvRk/zUmCyN6DYC0SyHG8njRigWLgQU9Ir62geksPam+aN7n/fZAKsE9vZkCLcN3qBkMFbPnliMurs5KtFbJlZLYSil5QtBNK3bfLPbpAK0aLz/zmASr7FSLsvOvB30FDyKb/3Qm0uE2LkIknHvd34KcxmGmPGlAWl6vDdRd5SF5 Username1@RandomHost2.company",
-      "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCiTE9GnjEQeL4wMiqAsCJteX67PF6rleStq7PGBPSkXkiyodW4VhPq30vTdwxLRSPAp6yB2QaASjgbmLU8SkoBZER9JFMUCuqblq2Ngz1SUvzD2wnV2IjBnVR1uBY2BF2VKH3m3VbnHduXSlpXitjm8jcua22tlB1Vd2Qz22/sOvRk/zUmCyN6DYC0SyHG8njRigWLgQU9Ir62geksPam+aN7n/fZAKsE9vZkCLcN3qBkMFbPnliMurs5KtFbJlZLYSil5QtBNK3bfLPbpAK0aLz/zmASr7FSLsvOvB30FDyKb/3Qm0uE2LkIknHvd34KcxmGmPGlAWl6vDdRd5SF5",
-      "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCiTE9GnjEQeL4wMiqAsCJteX67PF6rleStq7PGBPSkXkiyodW4VhPq30vTdwxLRSPAp6yB2QaASjgbmLU8SkoBZER9JFMUCuqblq2Ngz1SUvzD2wnV2IjBnVR1uBY2BF2VKH3m3VbnHduXSlpXitjm8jcua22tlB1Vd2Qz22/sOvRk/zUmCyN6DYC0SyHG8njRigWLgQU9Ir62geksPam+aN7n/fZAKsE9vZkCLcN3qBkMFbPnliMurs5KtFbJlZLYSil5QtBNK3bfLPbpAK0aLz/zmASr7FSLsvOvB30FDyKb/3Qm0uE2LkIknHvd34KcxmGmPGlAWl6vDdRd5SF5 Username1!",
-      "ssh-rsa AAAA Username1"
+    this.awsFailConnect = false
+    this.awsPendingInstance = false
+    this.awsHaltedInstance = false
+    this.pubkeys = [
+      'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCiTE9GnjEQeL4wMiqAsCJteX67PF6rleStq7PGBPSkXkiyodW4VhPq30vTdwxLRSPAp6yB2QaASjgbmLU8SkoBZER9JFMUCuqblq2Ngz1SUvzD2wnV2IjBnVR1uBY2BF2VKH3m3VbnHduXSlpXitjm8jcua22tlB1Vd2Qz22/sOvRk/zUmCyN6DYC0SyHG8njRigWLgQU9Ir62geksPam+aN7n/fZAKsE9vZkCLcN3qBkMFbPnliMurs5KtFbJlZLYSil5QtBNK3bfLPbpAK0aLz/zmASr7FSLsvOvB30FDyKb/3Qm0uE2LkIknHvd34KcxmGmPGlAWl6vDdRd5SF5 Username1@RandomHost1.company'
+      'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCiTE9GnjEQeL4wMiqAsCJteX67PF6rleStq7PGBPSkXkiyodW4VhPq30vTdwxLRSPAp6yB2QaASjgbmLU8SkoBZER9JFMUCuqblq2Ngz1SUvzD2wnV2IjBnVR1uBY2BF2VKH3m3VbnHduXSlpXitjm8jcua22tlB1Vd2Qz22/sOvRk/zUmCyN6DYC0SyHG8njRigWLgQU9Ir62geksPam+aN7n/fZAKsE9vZkCLcN3qBkMFbPnliMurs5KtFbJlZLYSil5QtBNK3bfLPbpAK0aLz/zmASr7FSLsvOvB30FDyKb/3Qm0uE2LkIknHvd34KcxmGmPGlAWl6vDdRd5SF6 Username2@RandomHost2.company'
     ]
-    cut("host", [pubkeys[0]]).catch(() ->
-      expect(ssh.connect.calls.length).toEqual(0)
-      cut("host", [pubkeys[1]])
-    ).catch(() ->
-      expect(ssh.connect.calls.length).toEqual(0)
-      cut("host", [pubkeys[2]])
-    ).catch(() ->
-      expect(ssh.connect.calls.length).toEqual(0)
-      result = cut("host", [pubkeys[3]])
-    ).catch(() ->
-      expect(ssh.connect.calls.length).toEqual(0)
-      done()
-      return Promise.reject()
+
+#  it 'does not try to connect if a badly formatted pubkey is provided', (done) ->
+#    cut = ec2KeyManagement.setSSHKeys
+#    bad_pubkeys = [
+#      "AAAAB3NzaC1yc2EAAAADAQABAAABAQCiTE9GnjEQeL4wMiqAsCJteX67PF6rleStq7PGBPSkXkiyodW4VhPq30vTdwxLRSPAp6yB2QaASjgbmLU8SkoBZER9JFMUCuqblq2Ngz1SUvzD2wnV2IjBnVR1uBY2BF2VKH3m3VbnHduXSlpXitjm8jcua22tlB1Vd2Qz22/sOvRk/zUmCyN6DYC0SyHG8njRigWLgQU9Ir62geksPam+aN7n/fZAKsE9vZkCLcN3qBkMFbPnliMurs5KtFbJlZLYSil5QtBNK3bfLPbpAK0aLz/zmASr7FSLsvOvB30FDyKb/3Qm0uE2LkIknHvd34KcxmGmPGlAWl6vDdRd5SF5 Username1@RandomHost2.company",
+#      "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCiTE9GnjEQeL4wMiqAsCJteX67PF6rleStq7PGBPSkXkiyodW4VhPq30vTdwxLRSPAp6yB2QaASjgbmLU8SkoBZER9JFMUCuqblq2Ngz1SUvzD2wnV2IjBnVR1uBY2BF2VKH3m3VbnHduXSlpXitjm8jcua22tlB1Vd2Qz22/sOvRk/zUmCyN6DYC0SyHG8njRigWLgQU9Ir62geksPam+aN7n/fZAKsE9vZkCLcN3qBkMFbPnliMurs5KtFbJlZLYSil5QtBNK3bfLPbpAK0aLz/zmASr7FSLsvOvB30FDyKb/3Qm0uE2LkIknHvd34KcxmGmPGlAWl6vDdRd5SF5",
+#      "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCiTE9GnjEQeL4wMiqAsCJteX67PF6rleStq7PGBPSkXkiyodW4VhPq30vTdwxLRSPAp6yB2QaASjgbmLU8SkoBZER9JFMUCuqblq2Ngz1SUvzD2wnV2IjBnVR1uBY2BF2VKH3m3VbnHduXSlpXitjm8jcua22tlB1Vd2Qz22/sOvRk/zUmCyN6DYC0SyHG8njRigWLgQU9Ir62geksPam+aN7n/fZAKsE9vZkCLcN3qBkMFbPnliMurs5KtFbJlZLYSil5QtBNK3bfLPbpAK0aLz/zmASr7FSLsvOvB30FDyKb/3Qm0uE2LkIknHvd34KcxmGmPGlAWl6vDdRd5SF5 Username1!",
+#      "ssh-rsa AAAA Username1"
+#    ]
+#    cut("host", [bad_pubkeys[0]]).catch(() ->
+#      expect(ec2KeyManagement.exec.calls.length).toEqual(0)
+#      cut("host", [bad_pubkeys[1]])
+#    ).catch(() ->
+#      expect(ec2KeyManagement.exec.calls.length).toEqual(0)
+#      cut("host", [bad_pubkeys[2]])
+#    ).catch(() ->
+#      expect(ec2KeyManagement.exec.calls.length).toEqual(0)
+#      result = cut("host", [bad_pubkeys[3]])
+#    ).catch(() ->
+#      expect(ec2KeyManagement.exec.calls.length).toEqual(0)
+#      done()
+#      return Promise.reject()
+#    ).then(() ->
+#      done('Test failed, promise should have been rejected but was resolved')
+#    )
+
+  it 'runs exec if the connection and command succeeds', (done) ->
+    cut = ec2KeyManagement.setSSHKeys
+    cut("host", this.pubkeys).catch(() ->
+      done('Test failed, promise should have been resolved but was rejected')
     ).then(() ->
-      done('Test failed, promise should have been rejected but was resolved')
-    )
-
-  it 'does not try to connect if one of many keys is badly formatted', (done) ->
-    cut = ec2KeyManagement.addSSHKeys
-    pubkeys = [
-      this.pubkey,
-      this.pubkey2,
-      "ssh-rsa AAAA Username1"
-    ]
-    cut("host", pubkeys).then(() ->
-      done('Test failed, promise should have been rejected but was resolved')
-    ).catch(() ->
-      expect(ssh.connect.calls.length).toEqual(0)
+      expect(ec2KeyManagement.exec.calls.length).toEqual(1)
       done()
     )
+
+#  it 'does not try to connect if one of many keys is badly formatted', (done) ->
+#    cut = ec2KeyManagement.setSSHKeys
+#    this.pubkeys.push("ssh-rsa AAAA Username1")
+#    cut("host", this.pubkeys).then(() ->
+#      done('Test failed, promise should have been rejected but was resolved')
+#    ).catch(() ->
+#      expect(ec2KeyManagement.exec.calls.length).toEqual(0)
+#      done()
+#    )
 
   it 'resolves if the connection and command succeeds', (done) ->
-    cut = ec2KeyManagement.addSSHKeys
-    cut("host", [this.pubkey]).catch((err) ->
+    cut = ec2KeyManagement.setSSHKeys
+    cut("host", this.pubkeys).then(() ->
+      expect(ec2KeyManagement.exec.calls.length).toEqual(1)
+      done()
+    ).catch(() ->
       done('Test failed, promise should have been resolved but was rejected')
-    ).then((result) ->
-      expect(ssh.connect.calls.length).toEqual(1)
-      done()
     )
 
-  it 'rejects if the connection fails', (done) ->
-    cut = ec2KeyManagement.addSSHKeys
+  it 'does not startInstance or stopInstance if the instance is running', (done) ->
+    cut = ec2KeyManagement.setSSHKeys
+    cut("host", this.pubkeys).then(() ->
+      expect(ec2Client.getSingleInstance.calls.length).toEqual(1)
+      expect(ec2Client.startInstance.calls.length).toEqual(0)
+      expect(ec2Client.stopInstance.calls.length).toEqual(0)
+      done()
+    ).catch(() ->
+      done('Test failed, promise should have been resolved but was rejected')
+    )
+
+  it 'retries 5 times and rejects if the connection fails', (done) ->
+    cut = ec2KeyManagement.setSSHKeys
     this.sshFailConnect = true
-    cut("host", [this.pubkey]).then(() ->
+    cut("host", this.pubkeys).then(() =>
       done('Test failed, promise should have been rejected but was resolved')
-    ).catch((err) ->
-      expect(ssh.connect.calls.length).toEqual(1)
-      console.log(err)
+    ).catch((err) =>
+      expect(ec2KeyManagement.exec.calls.length).toEqual(5)
       done()
     )
 
-  # This isn't working as expected for some reason
-  #it 'rejects if the connection succeeds but the command fails', (done) ->
-  #  cut = ec2KeyManagement.addSSHKeys
-  #  cut("host", [this.failing_pubkey]).then(() ->
-  #    done('Test failed, promise should have been rejected but was resolved')
-  #  ).catch((err) ->
-  #    expect(ssh.connect.calls.length).toEqual(1)
-  #    expect(err.code).toEqual(1)
-  #    done()
-  #  )
-  
-describe 'removeSSHKeys', () ->
-  beforeEach () ->
-    spyOn(fs, 'readFileSync').andCallFake((keyfile) ->
-      return 'key text'
-    #return "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCiTE9GnjEQeL4wMiqAsCJteX67PF6rleStq7PGBPSkXkiyodW4VhPq30vTdwxLRSPAp6yB2QaASjgbmLU8SkoBZER9JFMUCuqblq2Ngz1SUvzD2wnV2IjBnVR1uBY2BF2VKH3m3VbnHduXSlpXitjm8jcua22tlB1Vd2Qz22/sOvRk/zUmCyN6DYC0SyHG8njRigWLgQU9Ir62geksPam+aN7n/fZAKsE9vZkCLcN3qBkMFbPnliMurs5KtFbJlZLYSil5QtBNK3bfLPbpAK0aLz/zmASr7FSLsvOvB30FDyKb/3Qm0uE2LkIknHvd34KcxmGmPGlAWl6vDdRd5SF5 Username1@RandomHost2.company"
-    )
-    this.sshFailConnect = false
-    this.pubkey = 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCiTE9GnjEQeL4wMiqAsCJteX67PF6rleStq7PGBPSkXkiyodW4VhPq30vTdwxLRSPAp6yB2QaASjgbmLU8SkoBZER9JFMUCuqblq2Ngz1SUvzD2wnV2IjBnVR1uBY2BF2VKH3m3VbnHduXSlpXitjm8jcua22tlB1Vd2Qz22/sOvRk/zUmCyN6DYC0SyHG8njRigWLgQU9Ir62geksPam+aN7n/fZAKsE9vZkCLcN3qBkMFbPnliMurs5KtFbJlZLYSil5QtBNK3bfLPbpAK0aLz/zmASr7FSLsvOvB30FDyKb/3Qm0uE2LkIknHvd34KcxmGmPGlAWl6vDdRd5SF5 Username1@RandomHost2.company'
-    this.failing_pubkey = 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCiTE9GnjEQeL4wMiqAsCJteX67PF6rleStq7PGBPSkXkiyodW4VhPq30vTdwxLRSPAp6yB2QaASjgbmLU8SkoBZER9JFMUCuqblq2Ngz1SUvzD2wnV2IjBnVR1uBY2BF2VKH3m3VbnHduXSlpXitjm8jcua22tlB1Vd2Qz22/sOvRk/zUmCyN6DYC0SyHG8njRigWLgQU9Ir62geksPam+aN7n/fZAKsE9vZkCLcN3qBkMFbPnliMurs5KtFbJlZLYSil5QtBNK3bfLPbpAK0aLz/zmASr7FSLsvOvB30FDyKb/3Qm0uE2LkIknHvd34KcxmGmPGlAWl6vDdRd5SF5 Username2'
-    this.pubkey2 = 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCiTE9GnjEQeL4wMiqAsCJteX67PF6rleStq7PGBPSkXkiyodW4VhPq30vTdwxLRSPAp6yB2QaASjgbmLU8SkoBZER9JFMUCuqblq2Ngz1SUvzD2wnV2IjBnVR1uBY2BF2VKH3m3VbnHduXSlpXitjm8jcua22tlB1Vd2Qz22/sOvRk/zUmCyN6DYC0SyHG8njRigWLgQU9Ir62geksPam+aN7n/fZAKsE9vZkCLcN3qBkMFbPnliMurs5KtFbJlZLYSil5QtBNK3bfLPbpAK0aLz/zmASr7FSLsvOvB30FDyKb/3Qm0uE2LkIknHvd34KcxmGmPGlAWl6vDdRd5SF6 Username2@RandomHost2.company'
-    spyOn(ssh, 'connect').andCallFake((params) =>
-      if this.sshFailConnect
-        return Promise.reject(new ssh.errors.ConnectionError(params.username, params.host))
-
-      return Promise.resolve({
-        exec: (commands) ->
-          commands.map((command) ->
-            if command.match(new RegExp(this.failing_pubkey))
-              return Promise.reject(new ssh.errors.CommandExecutionError(command, 1, 'stdout', 'stderr'))
-            else
-              return Promise.resolve()
-          )
-      }) 
-    )
-
-  it 'does not try to connect if a badly formatted pubkey is provided', (done) ->
-    cut = ec2KeyManagement.removeSSHKeys
-    pubkeys = [
-      "AAAAB3NzaC1yc2EAAAADAQABAAABAQCiTE9GnjEQeL4wMiqAsCJteX67PF6rleStq7PGBPSkXkiyodW4VhPq30vTdwxLRSPAp6yB2QaASjgbmLU8SkoBZER9JFMUCuqblq2Ngz1SUvzD2wnV2IjBnVR1uBY2BF2VKH3m3VbnHduXSlpXitjm8jcua22tlB1Vd2Qz22/sOvRk/zUmCyN6DYC0SyHG8njRigWLgQU9Ir62geksPam+aN7n/fZAKsE9vZkCLcN3qBkMFbPnliMurs5KtFbJlZLYSil5QtBNK3bfLPbpAK0aLz/zmASr7FSLsvOvB30FDyKb/3Qm0uE2LkIknHvd34KcxmGmPGlAWl6vDdRd5SF5 Username1@RandomHost2.company",
-      "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCiTE9GnjEQeL4wMiqAsCJteX67PF6rleStq7PGBPSkXkiyodW4VhPq30vTdwxLRSPAp6yB2QaASjgbmLU8SkoBZER9JFMUCuqblq2Ngz1SUvzD2wnV2IjBnVR1uBY2BF2VKH3m3VbnHduXSlpXitjm8jcua22tlB1Vd2Qz22/sOvRk/zUmCyN6DYC0SyHG8njRigWLgQU9Ir62geksPam+aN7n/fZAKsE9vZkCLcN3qBkMFbPnliMurs5KtFbJlZLYSil5QtBNK3bfLPbpAK0aLz/zmASr7FSLsvOvB30FDyKb/3Qm0uE2LkIknHvd34KcxmGmPGlAWl6vDdRd5SF5",
-      "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCiTE9GnjEQeL4wMiqAsCJteX67PF6rleStq7PGBPSkXkiyodW4VhPq30vTdwxLRSPAp6yB2QaASjgbmLU8SkoBZER9JFMUCuqblq2Ngz1SUvzD2wnV2IjBnVR1uBY2BF2VKH3m3VbnHduXSlpXitjm8jcua22tlB1Vd2Qz22/sOvRk/zUmCyN6DYC0SyHG8njRigWLgQU9Ir62geksPam+aN7n/fZAKsE9vZkCLcN3qBkMFbPnliMurs5KtFbJlZLYSil5QtBNK3bfLPbpAK0aLz/zmASr7FSLsvOvB30FDyKb/3Qm0uE2LkIknHvd34KcxmGmPGlAWl6vDdRd5SF5 Username1!",
-      "ssh-rsa AAAA Username1"
-    ]
-    cut("host", [pubkeys[0]]).catch(() ->
-      expect(ssh.connect.calls.length).toEqual(0)
-      cut("host", [pubkeys[1]])
-    ).catch(() ->
-      expect(ssh.connect.calls.length).toEqual(0)
-      cut("host", [pubkeys[2]])
-    ).catch(() ->
-      expect(ssh.connect.calls.length).toEqual(0)
-      result = cut("host", [pubkeys[3]])
-    ).catch(() ->
-      expect(ssh.connect.calls.length).toEqual(0)
-      done()
-      return Promise.reject()
+  it 'execs if instance state is pending', (done) ->
+    cut = ec2KeyManagement.setSSHKeys
+    this.awsPendingInstance = true
+    cut("host", this.pubkeys).catch(() ->
+      done('Test failed, promise should have been resolved but was rejected')
     ).then(() ->
-      done('Test failed, promise should have been rejected but was resolved')
+      expect(ec2KeyManagement.exec.calls.length).toEqual(1)
+      done()
     )
 
-  it 'does not try to connect if one of many keys is badly formatted', (done) ->
-    cut = ec2KeyManagement.removeSSHKeys
-    pubkeys = [
-      this.pubkey,
-      this.pubkey2,
-      "ssh-rsa AAAA Username1"
-    ]
-    cut("host", pubkeys).then(() ->
-      done('Test failed, promise should have been rejected but was resolved')
+  it 'does not startInstance or stopInstance if the instance state is pending', (done) ->
+    cut = ec2KeyManagement.setSSHKeys
+    this.awsPendingInstance = true
+    cut("host", this.pubkeys).then(() ->
+      expect(ec2Client.getSingleInstance.calls.length).toEqual(1)
+      expect(ec2Client.startInstance.calls.length).toEqual(0)
+      expect(ec2Client.stopInstance.calls.length).toEqual(0)
+      done()
     ).catch(() ->
-      expect(ssh.connect.calls.length).toEqual(0)
-      done()
-    )
-
-  it 'resolves if the connection and command succeeds', (done) ->
-    cut = ec2KeyManagement.removeSSHKeys
-    cut("host", [this.pubkey]).catch((err) ->
       done('Test failed, promise should have been resolved but was rejected')
-    ).then((result) ->
-      expect(ssh.connect.calls.length).toEqual(1)
+    )
+
+  it 'execs if instance state is halted', (done) ->
+    cut = ec2KeyManagement.setSSHKeys
+    this.awsHaltedInstance = true
+    cut("host", this.pubkeys).catch(() ->
+      done('Test failed, promise should have been resolved but was rejected')
+    ).then(() ->
+      expect(ec2KeyManagement.exec.calls.length).toEqual(1)
       done()
     )
 
-  it 'rejects if the connection fails', (done) ->
-    cut = ec2KeyManagement.removeSSHKeys
-    this.sshFailConnect = true
-    cut("host", [this.pubkey]).then(() ->
-      done('Test failed, promise should have been rejected but was resolved')
-    ).catch((err) ->
-      expect(ssh.connect.calls.length).toEqual(1)
-      console.log(err)
+  it 'runs startInstance and stopInstance if the instance state is halted', (done) ->
+    cut = ec2KeyManagement.setSSHKeys
+    this.awsHaltedInstance = true
+    cut("host", this.pubkeys).then(() ->
+      expect(ec2Client.getSingleInstance.calls.length).toEqual(1)
+      expect(ec2Client.startInstance.calls.length).toEqual(1)
+      expect(ec2Client.stopInstance.calls.length).toEqual(1)
       done()
+    ).catch(() ->
+      done('Test failed, promise should have been resolved but was rejected')
     )
 
-  # This isn't working as expected for some reason
-  #it 'rejects if the connection succeeds but the command fails', (done) ->
-  #  cut = ec2KeyManagement.removeSSHKeys
-  #  cut("host", [this.failing_pubkey]).then(() ->
-  #    done('Test failed, promise should have been rejected but was resolved')
-  #  ).catch((err) ->
-  #    expect(ssh.connect.calls.length).toEqual(1)
-  #    expect(err.code).toEqual(1)
-  #    done()
-  #  )
-  
