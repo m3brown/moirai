@@ -105,7 +105,7 @@ instances.createInstance = (opts) ->
   )
 
 
-instances.getInstances = (instancesIds=undefined) ->
+instances.getInstances = (instanceIds=undefined) ->
   params = {
     InstanceIds: instanceIds
     Filters: [
@@ -115,7 +115,7 @@ instances.getInstances = (instancesIds=undefined) ->
             # TODO consider a better way of pulling moirai machines.
             # With this solution, changing the config key will "lose"
             # any existing instances
-            conf.AWS.KEYNAME
+            conf.AWS.REQUIRED_PARAMS.KeyName
           ]
       },
       {
