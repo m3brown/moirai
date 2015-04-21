@@ -1,6 +1,5 @@
 _ = require('underscore')
 Promise = require('pantheon-helpers/lib/promise')
-instances = require('./instances')
 ec2Client = require('../ec2Client')
 couch_utils = require('../couch_utils')
 uuid = require('node-uuid')
@@ -42,30 +41,8 @@ clusters.handle_destroy_cluster = (req, resp) ->
   db = req.couch.use('moirai')
   clusters.destroy_cluster(db, cluster_id).pipe(resp)
 
-
-clusters.add_instance = (db_client, cluster_id, instance_opts) ->
-  instances.create_instance(instance_opts).then((data) ->
-    clusters.get_cluster(db_client, cluster_id).then((cluster) ->
-      cluster.instances.push(data)
-      Promise.denodeify(couch_utils.ensure_db)(db_client, 'insert', cluster).then(() ->
-        # Return the new instance
-        Promise.resolve(data)
-      )
-    ).catch((err) ->
-      # TODO handle error updating DB
-      Promise.reject(err)
-    )
-  )
-
 clusters.handle_add_instance = (req, resp) ->
-  cluster_id = req.params.cluster_id
-  instance_opts = req.body or {}
-  client = req.couch.use('moirai')
-  clusters.add_instance(client, cluster_id, instance_opts).then((couch_resp) ->
-    return resp.status(201).send(JSON.stringify(couch_resp))
-  ).catch((err) ->
-    return resp.status(500).send(JSON.stringify({error: 'internal error', msg: String(err)}))
-  )
+  resp.send('NOT IMPLEMENTED')
 
 clusters.handle_update_cluster = (req, resp) ->
   resp.send('NOT IMPLEMENTED')
