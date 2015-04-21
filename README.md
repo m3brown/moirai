@@ -4,7 +4,7 @@
 
   - **Origin of the name**: In Greek mythology, Moirai were the three Fates that controlled the thread of life.
 
-  - **Technology stack**: Written in Node.js and utilizing the aws-sdk along with CouchDB.  Will work standalone but was developed to work alongside [Kratos](http://github.com/cfpb/kratos)
+  - **Technology stack**: Written in Node.js and utilizing the aws-sdk along with CouchDB, utilizes the [Pantheon-Helpers](https://github.com/cfpb/pantheon-helpers) platform.  Will work standalone but was developed to work alongside [Kratos](http://github.com/cfpb/kratos)
   - **Status**:  Alpha
 
 ## Dependencies
@@ -13,24 +13,53 @@ This application requires Node.js as well as the dependencies specified in [pack
 
 ## Installation
 
-#### TODO
+1. Install the application and its dependencies
+
+```
+git clone https://github.com/cfpb/moirai
+cd moirai
+npm install -g coffee-script
+npm install
+```
 
 ## Configuration
 
-#### TODO
+The configuration for Moirai is split into two files: `config.coffee` and `config_secret.coffee`.  The purpose of the secret file is to prevent accidentally committing confidential information such as passwords and access keys.  Any config settings and go in either config file, and settings in `config_secret.coffee` will override settings in `config.coffee`.
+
+1. Copy the secret configs example and edit accordingly (see the Configuration section below)
+
+```
+cp src/config_secret.coffeeexample src/config_secret.coffee
+```
+
+2. Adjust the configuration settings (src/config.coffee) if necessary
+3. Compile the changes
+
+```
+cake build
+```
 
 ## Usage
 
-#### TODO
+1. Update the `config.settings` and `config_secret.coffee` settings for your CouchDB server (see Configuration above)
+2. Push the CouchDB configs to the CouchDB server
 
 ```
-npm install
-icake runtestserver
+cake sync_design_docs
+```
+
+2. Start the API and the backend workers
+
+```
+cake runtestserver
+cake runworker
 ```
 
 ## How to test the software
 
-#### TODO
+```
+cake test
+```
 
 ## Known issues
 
@@ -42,7 +71,7 @@ If you have questions, concerns, bug reports, etc, please file an issue in this 
 
 ## Getting involved
 
-#### TODO
+Please feel free to fork this repo and submit Pull Requests with any enhancements.
 
 
 ----
@@ -57,8 +86,4 @@ If you have questions, concerns, bug reports, etc, please file an issue in this 
 
 ## Credits and references
 
-#### TODO
-
-1. Projects that inspired you
-2. Related projects
-3. Books, papers, talks, or other sources that have meaniginful impact or influence on this project 
+1. [AWS-SDK for Node.js](http://aws.amazon.com/sdk-for-node-js/)
