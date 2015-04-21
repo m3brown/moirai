@@ -29,7 +29,7 @@ The configuration for Moirai is split into two files: `config.coffee` and `confi
 1. Copy the secret configs example and edit accordingly (see the Configuration section below)
 
 ```
-cp src/config_secret.coffeeexample src/config_secret.coffee
+cp src/config_secret.coffee.example src/config_secret.coffee
 ```
 
 2. Adjust the configuration settings (src/config.coffee) if necessary
