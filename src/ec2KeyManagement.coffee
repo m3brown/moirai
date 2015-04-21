@@ -36,10 +36,10 @@ keys.setSSHKeys = (instance, pubkeys) ->
     if initialState in ['running', 'pending']
       return makeAttempt()
     else
-      return ec2Client.startInstance(instance.aws_id)
+      return ec2Client.startInstances([instance.aws_id])
           .then(makeAttempt)
           .then(() ->
-            ec2Client.stopInstance(instance.aws_id)
+            ec2Client.stopInstances([instance.aws_id])
           )
   )
 

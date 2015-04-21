@@ -1,6 +1,7 @@
 _ = require('underscore')
 Promise = require('pantheon-helpers/lib/promise')
 instances = require('./instances')
+ec2Client = require('../ec2Client')
 couch_utils = require('../couch_utils')
 uuid = require('node-uuid')
 
@@ -77,5 +78,33 @@ clusters.handle_set_keys = (req, resp) ->
   cluster_id = 'cluster_' + req.params.cluster_id
   keys = req.body or []
   clusters.set_keys(req.couch, cluster_id, keys).pipe(resp)
+
+clusters.start_cluster = (db_client, cluster_id, callback) ->
+  clusters.get_cluster(db_client, cluster_id, 'promise').then((cluster) ->
+    awsIds = _.pluck(cluster.instances, 'aws_id')
+    ec2Client.startInstances(awsIds)
+  )
+
+clusters.handle_start_cluster = (req, resp) ->
+  cluster_id = 'cluster_' + req.params.cluster_id
+  clusters.start_cluster(req.couch, cluster_id).then((aws_resp) ->
+    return resp.status(201).send(JSON.stringify(aws_resp))
+  ).catch((err) ->
+    return resp.status(500).send(JSON.stringify({error: 'internal error', msg: String(err)}))
+  )
+
+clusters.stop_cluster = (db_client, cluster_id, callback) ->
+  clusters.get_cluster(db_client, cluster_id, 'promise').then((cluster) ->
+    awsIds = _.pluck(cluster.instances, 'aws_id')
+    ec2Client.stopInstances(awsIds)
+  )
+
+clusters.handle_stop_cluster = (req, resp) ->
+  cluster_id = 'cluster_' + req.params.cluster_id
+  clusters.stop_cluster(req.couch, cluster_id).then((aws_resp) ->
+    return resp.status(201).send(JSON.stringify(aws_resp))
+  ).catch((err) ->
+    return resp.status(500).send(JSON.stringify({error: 'internal error', msg: String(err)}))
+  )
 
 module.exports = clusters

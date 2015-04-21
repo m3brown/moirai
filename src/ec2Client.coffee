@@ -135,17 +135,23 @@ instances.getSingleInstance = (instance_id) ->
   )
 
 
-instances.startInstance = (aws_id) ->
+instances.startInstances = (awsIds) ->
+  if not _.isArray(awsIds)
+    return Promise.reject('Object is not an array: ' + JSON.stringify(awsIds))
+
   params = {
-    InstanceIds: [aws_id]
+    InstanceIds: awsIds
   }
 
   instances.ec2.startInstances(params)
 
 
-instances.stopInstance = (aws_id) ->
+instances.stopInstances = (awsIds) ->
+  if not _.isArray(awsIds)
+    return Promise.reject('Object is not an array: ' + JSON.stringify(awsIds))
+
   params = {
-    InstanceIds: [aws_id]
+    InstanceIds: awsIds
   }
 
   instances.ec2.stopInstances(params)

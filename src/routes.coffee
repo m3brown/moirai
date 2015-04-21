@@ -10,5 +10,7 @@ module.exports = (app) ->
     app.delete('/moirai/clusters/:cluster_id', clusters.handle_destroy_cluster)
 
     app.put('/moirai/clusters/:cluster_id/keys', clusters.handle_set_keys)
+    app.put('/moirai/clusters/:cluster_id/start', clusters.handle_start_cluster)
+    app.put('/moirai/clusters/:cluster_id/stop', clusters.handle_stop_cluster)
 
     app.post('/moirai/clusters/:cluster_id/instances', clusters.handle_add_instance)
