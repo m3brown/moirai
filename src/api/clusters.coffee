@@ -6,6 +6,8 @@ uuid = require('node-uuid')
 
 doAction = require('pantheon-helpers/lib/doAction')
 
+CLUSTER_MISSING_NAME_ERROR = "Cluster name not provided"
+
 clusters = {}
 
 clusters.getCluster = (db_client, cluster_id, callback) ->
@@ -22,15 +24,24 @@ clusters.getClusters = (db_client, callback) ->
 clusters.handleGetClusters = (req, resp) ->
   clusters.getClusters(req.couch).pipe(resp)
 
-clusters.createCluster = (db, record, callback) ->
+clusters.createCluster = (db_client, record) ->
+  if not record.name?
+    return Promise.reject(CLUSTER_MISSING_NAME_ERROR)
+
   record.instances.forEach((instance) -> instance.id = uuid.v4())
-  record.name = "aCluster"
-  return doAction(db, 'moirai', null, {a: 'c+', record: record}, callback)
+  return doAction(db_client.use('moirai'), 'moirai', null, {a: 'c+', record: record}, 'promise')
 
 clusters.handleCreateCluster = (req, resp) ->
   cluster_opts = req.body or {}
   db = req.couch.use('moirai')
-  clusters.createCluster(db, cluster_opts).pipe(resp)
+  clusters.createCluster(req.couch, cluster_opts).then((clusterData) ->
+    return resp.status(201).send(JSON.stringify(clusterData))
+  ).catch((err) ->
+    if err == CLUSTER_MISSING_NAME_ERROR
+      return resp.status(400).send(JSON.stringify({error: 'Bad Request', msg: err}))
+    else
+      return resp.status(500).send(JSON.stringify({error: 'Internal Error', msg: String(err)}))
+  )
 
 
 clusters.destroyCluster = (db, cluster_id, callback) ->
