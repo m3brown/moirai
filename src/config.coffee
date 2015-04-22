@@ -11,6 +11,7 @@ config =
     PORT: 5001
   PRIVATE_KEY_FILE: process.env.HOME + '/.ssh/moirai-dev'
   AUTHORIZED_KEY_DEFAULTS: []
+  SSH_USER: 'ec2-user'
 
 _.extend(config, config_secret)
 

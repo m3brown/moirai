@@ -5,9 +5,9 @@ child_process = require('child_process')
 
 keys = {}
 
-PRIVATE_KEY = conf.AWS.PRIVATE_KEY_FILE or (process.env.HOME+'/.ssh/id_rsa')
-USERNAME = conf.AWS.SSH_USER or 'ec2-user'
-DEFAULT_KEYS = conf.AWS.AUTHORIZED_KEY_DEFAULTS or []
+PRIVATE_KEY = conf.PRIVATE_KEY_FILE or (process.env.HOME+'/.ssh/id_rsa')
+USERNAME = conf.SSH_USER or 'ec2-user'
+DEFAULT_KEYS = conf.AUTHORIZED_KEY_DEFAULTS or []
 
 keys.exec = Promise.denodeify(child_process.exec)
 
