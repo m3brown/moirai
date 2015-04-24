@@ -1,6 +1,6 @@
-do_action = require('./shared/do_action')
-validate_doc_update = require('./shared/validate_doc_update').validate_doc_update
-_ = require('./underscore')
+do_action = require('pantheon-helpers').design_docs.do_action
+validate_doc_update = require('pantheon-helpers').design_docs.validate_doc_update.validate_doc_update
+_ = require('underscore')
 
 a = {}
 
