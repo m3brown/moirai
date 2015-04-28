@@ -1,6 +1,7 @@
 _ = require('underscore')
 conf = require('./config')
 ec2Client = require('./ec2Client')
+couch_utils = require('./couch_utils')
 ec2KeyManagement = require('./ec2KeyManagement')
 Promise = require('pantheon-helpers/lib/promise')
 
@@ -80,7 +81,18 @@ handlers = {
     # set cluster keys
     'k': (event, doc) ->
       promiseList = _.each(doc.instances, (instance) ->
-        ec2KeyManagement.setSSHKeys(instance, doc.keys)
+        # If the create instance worker hasn't resolved yet, the aws_id
+        # and ip may not exist yet
+        if instance.aws_id?
+          return ec2KeyManagement.setSSHKeys(instance, doc.keys)
+        else
+          Promise.setTimeout(60*1000).then(() ->
+            couch_utils.nano_system_user.use('moirai').get(doc._id, 'promise')
+          ).then((doc) ->
+            if not instance.aws_id?
+              return Promise.reject('Instance has no aws_id defined')
+            ec2KeyManagement.setSSHKeys(instance, doc.keys)
+          )
       )
       Promise.all(promiseList).then(() ->
         return Promise.resolve()

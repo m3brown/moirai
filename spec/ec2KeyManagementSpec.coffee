@@ -36,6 +36,7 @@ describe 'setSSHKeys', () ->
     this.awsFailConnect = false
     this.awsPendingInstance = false
     this.awsHaltedInstance = false
+    this.instance = {aws_id: 'aws_id'}
     this.pubkeys = [
       'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCiTE9GnjEQeL4wMiqAsCJteX67PF6rleStq7PGBPSkXkiyodW4VhPq30vTdwxLRSPAp6yB2QaASjgbmLU8SkoBZER9JFMUCuqblq2Ngz1SUvzD2wnV2IjBnVR1uBY2BF2VKH3m3VbnHduXSlpXitjm8jcua22tlB1Vd2Qz22/sOvRk/zUmCyN6DYC0SyHG8njRigWLgQU9Ir62geksPam+aN7n/fZAKsE9vZkCLcN3qBkMFbPnliMurs5KtFbJlZLYSil5QtBNK3bfLPbpAK0aLz/zmASr7FSLsvOvB30FDyKb/3Qm0uE2LkIknHvd34KcxmGmPGlAWl6vDdRd5SF5 Username1@RandomHost1.company'
       'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCiTE9GnjEQeL4wMiqAsCJteX67PF6rleStq7PGBPSkXkiyodW4VhPq30vTdwxLRSPAp6yB2QaASjgbmLU8SkoBZER9JFMUCuqblq2Ngz1SUvzD2wnV2IjBnVR1uBY2BF2VKH3m3VbnHduXSlpXitjm8jcua22tlB1Vd2Qz22/sOvRk/zUmCyN6DYC0SyHG8njRigWLgQU9Ir62geksPam+aN7n/fZAKsE9vZkCLcN3qBkMFbPnliMurs5KtFbJlZLYSil5QtBNK3bfLPbpAK0aLz/zmASr7FSLsvOvB30FDyKb/3Qm0uE2LkIknHvd34KcxmGmPGlAWl6vDdRd5SF6 Username2@RandomHost2.company'
@@ -68,7 +69,7 @@ describe 'setSSHKeys', () ->
 
   it 'runs exec if the connection and command succeeds', (done) ->
     cut = ec2KeyManagement.setSSHKeys
-    cut("host", this.pubkeys).catch(() ->
+    cut(this.instance, this.pubkeys).catch(() ->
       done('Test failed, promise should have been resolved but was rejected')
     ).then(() ->
       expect(ec2KeyManagement.exec.calls.length).toEqual(1)
@@ -87,7 +88,7 @@ describe 'setSSHKeys', () ->
 
   it 'resolves if the connection and command succeeds', (done) ->
     cut = ec2KeyManagement.setSSHKeys
-    cut("host", this.pubkeys).then(() ->
+    cut(this.instance, this.pubkeys).then(() ->
       expect(ec2KeyManagement.exec.calls.length).toEqual(1)
       done()
     ).catch(() ->
@@ -96,7 +97,7 @@ describe 'setSSHKeys', () ->
 
   it 'does not call startInstances or stopInstances if the instance is running', (done) ->
     cut = ec2KeyManagement.setSSHKeys
-    cut("host", this.pubkeys).then(() ->
+    cut(this.instance, this.pubkeys).then(() ->
       expect(ec2Client.getSingleInstance.calls.length).toEqual(1)
       expect(ec2Client.startInstances.calls.length).toEqual(0)
       expect(ec2Client.stopInstances.calls.length).toEqual(0)
@@ -108,7 +109,7 @@ describe 'setSSHKeys', () ->
   it 'retries 5 times and rejects if the connection fails', (done) ->
     cut = ec2KeyManagement.setSSHKeys
     this.sshFailConnect = true
-    cut("host", this.pubkeys).then(() =>
+    cut(this.instance, this.pubkeys).then(() =>
       done('Test failed, promise should have been rejected but was resolved')
     ).catch((err) =>
       expect(ec2KeyManagement.exec.calls.length).toEqual(5)
@@ -118,7 +119,7 @@ describe 'setSSHKeys', () ->
   it 'execs if instance state is pending', (done) ->
     cut = ec2KeyManagement.setSSHKeys
     this.awsPendingInstance = true
-    cut("host", this.pubkeys).catch(() ->
+    cut(this.instance, this.pubkeys).catch(() ->
       done('Test failed, promise should have been resolved but was rejected')
     ).then(() ->
       expect(ec2KeyManagement.exec.calls.length).toEqual(1)
@@ -128,7 +129,7 @@ describe 'setSSHKeys', () ->
   it 'does not call startInstances or stopInstances if the instance state is pending', (done) ->
     cut = ec2KeyManagement.setSSHKeys
     this.awsPendingInstance = true
-    cut("host", this.pubkeys).then(() ->
+    cut(this.instance, this.pubkeys).then(() ->
       expect(ec2Client.getSingleInstance.calls.length).toEqual(1)
       expect(ec2Client.startInstances.calls.length).toEqual(0)
       expect(ec2Client.stopInstances.calls.length).toEqual(0)
@@ -140,7 +141,7 @@ describe 'setSSHKeys', () ->
   it 'execs if instance state is halted', (done) ->
     cut = ec2KeyManagement.setSSHKeys
     this.awsHaltedInstance = true
-    cut("host", this.pubkeys).catch(() ->
+    cut(this.instance, this.pubkeys).catch(() ->
       done('Test failed, promise should have been resolved but was rejected')
     ).then(() ->
       expect(ec2KeyManagement.exec.calls.length).toEqual(1)
@@ -150,12 +151,22 @@ describe 'setSSHKeys', () ->
   it 'runs startInstances and stopInstances if the instance state is halted', (done) ->
     cut = ec2KeyManagement.setSSHKeys
     this.awsHaltedInstance = true
-    cut("host", this.pubkeys).then(() ->
+    cut(this.instance, this.pubkeys).then(() ->
       expect(ec2Client.getSingleInstance.calls.length).toEqual(1)
       expect(ec2Client.startInstances.calls.length).toEqual(1)
       expect(ec2Client.stopInstances.calls.length).toEqual(1)
       done()
     ).catch(() ->
       done('Test failed, promise should have been resolved but was rejected')
+    )
+
+  it 'fails if instance has no aws_id', (done) ->
+    cut = ec2KeyManagement.setSSHKeys
+    this.awsHaltedInstance = true
+    this.instance.aws_id = undefined
+    cut(this.instance, this.pubkeys).then(() ->
+      done('Test failed, promise should have been rejected but was resolved')
+    ).catch(() ->
+      done()
     )
 

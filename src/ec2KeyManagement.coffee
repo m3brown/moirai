@@ -20,6 +20,9 @@ getRemoteCommand = (pubkeys) ->
   return '"echo -e \''+allKeys.join('\\n')+'\' > .ssh/authorized_keys"'
 
 keys.setSSHKeys = (instance, pubkeys) ->
+  if not instance.aws_id?
+    return Promise.reject('Instance has no aws_id')
+
   ec2Client.getSingleInstance(instance.aws_id).then((data) ->
     initialState = data.State.Name
     attempts = 0
