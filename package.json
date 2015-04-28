@@ -1,0 +1,24 @@
+{
+  "name": "",
+  "description": "",
+  "author": "",
+  "scripts": {
+    "test": "cake test"
+  },
+  "dependencies": {
+    "aws-sdk": "2.1.16",
+    "basic-auth": "1.0.0",
+    "body-parser": "1.10.0",
+    "cookie-session": "1.1.0",
+    "express": "4.10.4",
+    "follow": "0.11.4",
+    "node-uuid": "1.4.2",
+    "pantheon-helpers": "git+https://github.com/cfpb/pantheon-helpers.git",
+    "prompt": "0.2.14",
+    "underscore": "1.7.0",
+    "underscore.string": "3.0.3"
+  },
+  "devDependencies": {
+  },
+  "engine": "node >= 0.10.0"
+}

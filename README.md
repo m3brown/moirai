@@ -1,84 +1,77 @@
-#### CFPB Open Source Project Template Instructions
+# Moirai
 
-1. Create a new project.
-2. Copy these files into the new project.
-3. Update the README, replacing the contents below as prescribed.
-4. Add any libraries, assets, or hard dependencies whose source code will be included
-   in the project's repository to the _Exceptions_ section in the [TERMS](TERMS.md).
-  - If no exceptions are needed, remove that section from TERMS.
-5. If working with an existing code base, answer the questions on the [open source checklist](opensource-checklist.md) 
-6. Delete these instructions and everything up to the _Project Title_ from the README.
-7. Write some great software and tell people about it.
+**Description**:  An API to create and manage AWS instances, written in Node.js.
 
-> Keep the README fresh! It's the first thing people see and will make the initial impression.
+  - **Origin of the name**: In Greek mythology, Moirai were the three Fates that controlled the thread of life.
 
-----
-
-# Project Title
-
-**Description**:  Put a meaningful, short, plain-language description of what
-this project is trying to accomplish and why it matters. 
-Describe the problem(s) this project solves.
-Describe how this software can improve the lives of its audience.
-
-Other things to include:
-
-  - **Technology stack**: Indicate the technological nature of the software, including primary programming language(s) and whether the software is intended as standalone or as a module in a framework or other ecosystem.
-  - **Status**:  Alpha, Beta, 1.1, etc. It's OK to write a sentence, too. The goal is to let interested people know where this project is at. This is also a good place to link to the [CHANGELOG](CHANGELOG.md).
-  - **Links to production or demo instances**
-  - Describe what sets this apart from related-projects. Linking to another doc or page is OK if this can't be expressed in a sentence or two.
-
-
-**Screenshot**: If the software has visual components, place a screenshot after the description; e.g.,
-
-![](https://raw.githubusercontent.com/cfpb/open-source-project-template/master/screenshot.png)
-
+  - **Technology stack**: Written in Node.js and utilizing the aws-sdk along with CouchDB, utilizes the [Pantheon-Helpers](https://github.com/cfpb/pantheon-helpers) platform.  Will work standalone but was developed to work alongside [Kratos](http://github.com/cfpb/kratos)
+  - **Status**:  Alpha
 
 ## Dependencies
 
-Describe any dependencies that must be installed for this software to work. 
-This includes programming languages, databases or other storage mechanisms, build tools, frameworks, and so forth.
-If specific versions of other software are required, or known not to work, call that out.
+This application requires Node.js as well as the dependencies specified in [package.json](package.json)
 
 ## Installation
 
-Detailed instructions on how to install, configure, and get the project running.
-This should be frequently tested to ensure reliability. Alternatively, a link to
-another page is fine, but it's important that this works.
+1. Install the application and its dependencies
+
+```
+git clone https://github.com/cfpb/moirai
+cd moirai
+npm install -g coffee-script
+npm install
+```
 
 ## Configuration
 
-If the software is configurable, describe it in detail, either here or in other documentation to which you link.
+The configuration for Moirai is split into two files: `config.coffee` and `config_secret.coffee`.  The purpose of the secret file is to prevent accidentally committing confidential information such as passwords and access keys.  Any config settings and go in either config file, and settings in `config_secret.coffee` will override settings in `config.coffee`.
+
+1. Copy the secret configs example and edit accordingly (see the Configuration section below)
+
+```
+cp src/config_secret.coffee.example src/config_secret.coffee
+```
+
+2. Adjust the configuration settings (src/config.coffee) if necessary
+3. Compile the changes
+
+```
+cake build
+```
 
 ## Usage
 
-Show users how to use the software. 
-Be specific. 
-Use appropriate formatting when showing code snippets.
+1. Update the `config.settings` and `config_secret.coffee` settings for your CouchDB server (see Configuration above)
+2. Push the CouchDB configs to the CouchDB server
+
+```
+cake sync_design_docs
+```
+
+2. Start the API and the backend workers
+
+```
+cake runtestserver
+cake runworker
+```
 
 ## How to test the software
 
-If the software includes automated tests, detail how to run those tests.
+```
+cake test
+```
 
 ## Known issues
 
-Document any known significant shortcomings with the software.
+This project is still under active development and is not ready for general use
 
 ## Getting help
-
-Instruct users how to get help with this software; this might include links to an issue tracker, wiki, mailing list, etc.
-
-**Example**
 
 If you have questions, concerns, bug reports, etc, please file an issue in this repository's Issue Tracker.
 
 ## Getting involved
 
-This section should detail why people should get involved and describe key areas you are
-currently focusing on; e.g., trying to get feedback on features, fixing certain bugs, building
-important pieces, etc.
-
-General instructions on _how_ to contribute should be stated with a link to [CONTRIBUTING](CONTRIBUTING.md).
+Please feel free to fork this repo and submit Pull Requests with any enhancements.
 
 
 ----
@@ -93,6 +86,4 @@ General instructions on _how_ to contribute should be stated with a link to [CON
 
 ## Credits and references
 
-1. Projects that inspired you
-2. Related projects
-3. Books, papers, talks, or other sources that have meaniginful impact or influence on this project 
+1. [AWS-SDK for Node.js](http://aws.amazon.com/sdk-for-node-js/)

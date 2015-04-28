@@ -1,3 +1,9 @@
+*~
+#*#
+
+*secret*
+!*secret*example
+
 # OS generated files #
 ######################
 .DS_Store
@@ -11,17 +17,9 @@ Thumbs.db
 ##################
 *.swp
 
-# Python #
-#################
-*.pyc
-*.egg-info/
-__pycache__/
-*.py[cod]
-
-# Django #
-#################
-*.egg-info
-.installed.cfg
+# Node #
+########
+node_modules
 
 # Unit test / coverage reports
 #################
@@ -34,6 +32,5 @@ coverage.xml
 
 # Front-End #
 #############
-node_modules/
 bower_components/
 .grunt/
