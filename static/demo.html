@@ -1,0 +1,257 @@
+<html>
+  <head>
+    <title>Moirai Frontend</title>
+    <style>
+      pre {
+        background-color: ghostwhite;
+        border: 1px solid silver;
+        padding: 10px 20px;
+        margin: 20px; 
+      }
+      .json-key {
+        color: brown;
+      }
+      .json-value {
+        color: navy;
+      }
+      .json-string {
+        color: green;
+      }
+      #keyInput {
+        font-family: "Courier New", Courier, monospace;
+        font-size: 12px;
+      }
+      form div {
+        padding-top: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id=container>
+      <h1>Hello!</h1>
+      <form name="createForm" id="createForm" method="POST">
+        <div>Cluster Name: <input type="text" name="name" value="New Cluster"/></div>
+        <div>Instance 1 Name: <input type="text" name="instances[0][tags][Name]" value="moirai-demo1"/></div>
+        <div>Instance 1 Application: <input type="text" name="instance[0][tags][Application]" value=""/></div>
+        <div>Instance 2 Name: <input type="text" name="instances[1][tags][Name]" value="moirai-demo2"/></div>
+        <div>Instance 2 Application: <input type="text" name="instance[1][tags][Application]" value=""/></div>
+        <div><input type="button" class="btn btn-info" id="simplepost" name="create" value="Create a Cluster"/></div>
+      </form>
+
+      <div><input type="button" class="btn btn-info" id="simplelist" name="list" value="List the Clusters"/></div>
+
+      <h3>Cluster Actions</h3>
+      <form name="actionForm" id="actionForm">
+        <div>Cluster ID: <input type="text" name="cluster_id" value=""/></div>
+        <div>
+          <input type="button" class="btn btn-info" id="getCluster" name="get" value="Get"/>
+          <input type="button" class="btn btn-info" id="getPrettyCluster" name="getPretty" value="Get Minimal"/>
+          <input type="button" class="btn btn-info" id="stopCluster" name="stop" value="Stop"/>
+          <input type="button" class="btn btn-info" id="startCluster" name="stop" value="Start"/>
+          <input type="button" class="btn btn-info" id="destroyCluster" name="delete" value="Delete"/>
+        </div>
+        <div>Key Array: <textarea id="keyInput" name="keys" rows="4" cols="80">[]</textarea></div>
+        <div>
+          <input type="button" class="btn btn-info" id="setClusterKeys" name="keys" value="Set Keys"/>
+        </div>
+      </form>
+    </div>
+
+    <pre id="results">
+    </pre>
+
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.serializeJSON/1.2.0/jquery.serializeJSON.min.js"></script>
+    <script>
+      var jsonPrettyPrint = {
+        replacer: function(match, pIndent, pKey, pVal, pEnd) {
+          var key = '<span class=json-key>';
+          var val = '<span class=json-value>';
+          var str = '<span class=json-string>';
+          var r = pIndent || '';
+          if (pKey)
+            r = r + key + pKey.replace(/[": ]/g, '') + '</span>: ';
+          if (pVal)
+            r = r + (pVal[0] == '"' ? str : val) + pVal + '</span>';
+            return r + (pEnd || '');
+          },
+          toHtml: function(obj) {
+            var jsonLine = /^( *)("[\w]+": )?("[^"]*"|[\w.+-]*)?([,[{])?$/mg;
+            return JSON.stringify(obj, null, 3)
+               .replace(/&/g, '&amp;').replace(/\\"/g, '&quot;')
+               .replace(/</g, '&lt;').replace(/>/g, '&gt;')
+               .replace(jsonLine, jsonPrettyPrint.replacer);
+            }
+          };
+
+      $(document).ready(function(){
+        $("#simplepost").click(function(e)
+        {
+          var MyForm = $("#createForm").serializeJSON();
+          $.ajax(
+          {
+            url : "/moirai/clusters",
+            type: "POST",
+            data : JSON.stringify(MyForm),
+            contentType: 'application/json',
+            success:function(maindta)
+            {
+             $("#results").html(jsonPrettyPrint.toHtml(JSON.parse(maindta)));
+            },
+            error: function(jqXHR, textStatus, errorThrown)
+            {
+             $("#results").html(errorThrown);
+            }
+          });
+          e.preventDefault(); //STOP default action
+        });
+        $("#simplelist").click(function(e)
+        {
+          $.ajax(
+          {
+            url : "/moirai/clusters",
+            type: "GET",
+            data : undefined,
+            contentType: 'application/json',
+            success: function(maindta)
+            {
+             $("#results").html(jsonPrettyPrint.toHtml(maindta));
+            },
+            error: function(jqXHR, textStatus, errorThrown)
+            {
+             $("#results").html(errorThrown);
+            }
+          });
+          e.preventDefault(); //STOP default action
+        });
+        $("#getCluster").click(function(e)
+        {
+          var MyForm = $("#actionForm").serializeJSON();
+          $.ajax(
+          {
+            url : "/moirai/clusters/"+MyForm.cluster_id,
+            type: "GET",
+            data : undefined,
+            contentType: 'application/json',
+            success: function(maindta)
+            {
+             $("#results").html(jsonPrettyPrint.toHtml(maindta));
+            },
+            error: function(jqXHR, textStatus, errorThrown)
+            {
+             $("#results").html(errorThrown);
+            }
+          });
+          e.preventDefault(); //STOP default action
+        });
+        $("#getPrettyCluster").click(function(e)
+        {
+          var MyForm = $("#actionForm").serializeJSON();
+          $.ajax(
+          {
+            url : "/moirai/clusters/"+MyForm.cluster_id,
+            type: "GET",
+            data : undefined,
+            contentType: 'application/json',
+            success: function(maindta)
+            {
+             delete maindta['audit'];
+             delete maindta['created'];
+             $("#results").html(jsonPrettyPrint.toHtml(maindta));
+            },
+            error: function(jqXHR, textStatus, errorThrown)
+            {
+             $("#results").html(errorThrown);
+            }
+          });
+          e.preventDefault(); //STOP default action
+        });
+        $("#stopCluster").click(function(e)
+        {
+          var MyForm = $("#actionForm").serializeJSON();
+          $.ajax(
+          {
+            url : "/moirai/clusters/"+MyForm.cluster_id+"/stop",
+            type: "PUT",
+            data : undefined,
+            contentType: 'application/json',
+            success:function(maindta)
+            {
+              $("#results").html(jsonPrettyPrint.toHtml(JSON.parse(maindta)));
+            },
+            error: function(jqXHR, textStatus, errorThrown)
+            {
+              $("#results").html(errorThrown);
+            }
+          });
+          e.preventDefault(); //STOP default action
+        });
+        $("#startCluster").click(function(e)
+        {
+          var MyForm = $("#actionForm").serializeJSON();
+          $.ajax(
+          {
+            url : "/moirai/clusters/"+MyForm.cluster_id+"/start",
+            type: "PUT",
+            data : undefined,
+            contentType: 'application/json',
+            success:function(maindta)
+            {
+             $("#results").html(jsonPrettyPrint.toHtml(JSON.parse(maindta)));
+            },
+            error: function(jqXHR, textStatus, errorThrown)
+            {
+             $("#results").html(errorThrown);
+            }
+          });
+          e.preventDefault(); //STOP default action
+        });
+        $("#destroyCluster").click(function(e)
+        {
+          var MyForm = $("#actionForm").serializeJSON();
+          $.ajax(
+          {
+            url : "/moirai/clusters/"+MyForm.cluster_id,
+            type: "DELETE",
+            data : undefined,
+            contentType: 'application/json',
+            success:function(maindta)
+            {
+             var maindta = JSON.parse(maindta);
+             delete maindta['audit'];
+             delete maindta['created'];
+             delete maindta['_revisions'];
+             $("#results").html(jsonPrettyPrint.toHtml(maindta));
+            },
+            error: function(jqXHR, textStatus, errorThrown)
+            {
+             $("#results").html(errorThrown);
+            }
+          });
+          e.preventDefault(); //STOP default action
+        });
+        $("#setClusterKeys").click(function(e)
+        {
+          var MyForm = $("#actionForm").serializeJSON();
+          $.ajax(
+          {
+            url : "/moirai/clusters/"+MyForm.cluster_id+"/keys",
+            type: "PUT",
+            data : MyForm.keys,
+            contentType: 'application/json',
+            success:function(maindta)
+            {
+             $("#results").html(jsonPrettyPrint.toHtml(JSON.parse(maindta)));
+            },
+            error: function(jqXHR, textStatus, errorThrown)
+            {
+             $("#results").html(errorThrown);
+            }
+          });
+          e.preventDefault(); //STOP default action
+        });
+      });
+    </script>
+
+  </body>
+</html>

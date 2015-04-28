@@ -55,10 +55,51 @@ cake runtestserver
 cake runworker
 ```
 
+### Proxy Setup
+
+You may want to run the server behind a web server or reverse proxy.  For example, to run on port 5000 behind Nginx:
+
+```
+server {
+    listen 80;
+
+    location ^~ /moirai {
+        proxy_pass http://localhost:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+
+You should then be able to visit the page at `localhost/moirai/static/sample.html`
+
 ## How to test the software
 
 ```
 cake test
+```
+
+### Demo Frontend
+
+A demo frontend is provided to test the functionality.  To enable the frontend:
+
+1. Disable API authentication by enabling dev mode in the config settings (DEV: true)
+2. Enable static file serving of the `static` directory in this repo (see above to get started with Nginx)
+
+For example, the following addition to the Nginx configuration would work for a moirai repo installed at `/opt/moirai/`:
+
+```
+...
+
+    location /moirai/static {
+        sendfile off;
+        alias /opt/moirai/static;
+    }
+
+...
 ```
 
 ## Known issues
