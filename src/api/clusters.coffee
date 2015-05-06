@@ -10,19 +10,64 @@ CLUSTER_MISSING_NAME_ERROR = "Cluster name not provided"
 
 clusters = {}
 
-clusters.getCluster = (client, cluster_id, callback) ->
-  cluster_id = 'cluster_' + cluster_id
-  client.use('moirai').get(cluster_id, callback)
+formatClusterId = (clusterId) ->
+  if clusterId.indexOf('cluster_') == 0
+    return clusterId
+  else
+    return 'cluster_' + clusterId
+
+clusters.getCluster = (client, clusterId, callback) ->
+  client.use('moirai').get(formatClusterId(clusterId), callback)
 
 clusters.handleGetCluster = (req, resp) ->
-  clusters.getCluster(req.couch, req.params.cluster_id).pipe(resp)
+  clusters.getCluster(req.couch, req.params.clusterId).pipe(resp)
 
-clusters.getClusters = (client, callback) ->
+clusters.getClusters = (client, opts) ->
+  # This only returns a promise
   params = {include_docs: true}
-  client.use('moirai').viewWithList('moirai', 'active_clusters', 'get_docs', params, callback)
+  opts ?= {}
+  if opts.clusterIds
+    params.keys = opts.clusterIds.map(formatClusterId)
+  client.use('moirai').viewWithList('moirai', 'active_clusters', 'get_docs_without_audit', params, 'promise').then((clusters) ->
+    awsIds = _.chain(clusters)
+              .pluck('instances')
+              .flatten(true)
+              .pluck('aws_id')
+              .compact()
+              .value()
+    ec2Client.getInstances(awsIds).then((ec2Instances) ->
+      ec2InstanceLookup = {}
+      _.each(ec2Instances, (ec2Instance) ->
+        instanceTags = {}
+        _.each(ec2Instance.Tags, (tag) ->
+          instanceTags[tag.Key] = tag.Value
+        )
+        ec2InstanceLookup[ec2Instance.InstanceId] = {
+          instanceType: ec2Instance.InstanceType
+          ip: ec2Instance.PrivateIpAddress
+          state: ec2Instance.State.Name
+          tags: instanceTags
+        }
+      )
+      clusters.forEach((cluster) ->
+        cluster.instances.forEach((instance) ->
+          if instance.aws_id
+            _.extend(instance, ec2InstanceLookup[instance.aws_id] or {state: 'instance does not exist'})
+        )
+      )
+      Promise.resolve(clusters)
+    )
+  )
 
 clusters.handleGetClusters = (req, resp) ->
-  clusters.getClusters(req.couch).pipe(resp)
+  clusterOpts = req.query or {}
+  if _.isString(req.query.clusterIds)
+    req.query.clusterIds = req.query.clusterIds.split(',')
+  clusters.getClusters(req.couch, req.query).then((clusters) ->
+    return resp.send(JSON.stringify(clusters))
+  ).catch((err) ->
+    return resp.status(500).send(JSON.stringify({error: 'internal error', msg: String(err)}))
+  )
 
 clusters.createCluster = (client, record) ->
   if not record.name?
@@ -32,8 +77,8 @@ clusters.createCluster = (client, record) ->
   return doAction(client.use('moirai'), 'moirai', null, {a: 'c+', record: record}, 'promise')
 
 clusters.handleCreateCluster = (req, resp) ->
-  cluster_opts = req.body or {}
-  clusters.createCluster(req.couch, cluster_opts).then((clusterData) ->
+  clusterOpts = req.body or {}
+  clusters.createCluster(req.couch, clusterOpts).then((clusterData) ->
     return resp.status(201).send(JSON.stringify(clusterData))
   ).catch((err) ->
     if err == CLUSTER_MISSING_NAME_ERROR
@@ -43,12 +88,11 @@ clusters.handleCreateCluster = (req, resp) ->
   )
 
 
-clusters.destroyCluster = (client, cluster_id, callback) ->
-  cluster_id = "cluster_" + cluster_id
-  return doAction(client.use('moirai'), 'moirai', cluster_id, {a: 'c-'}, callback)
+clusters.destroyCluster = (client, clusterId, callback) ->
+  return doAction(client.use('moirai'), 'moirai', formatClusterId(clusterId), {a: 'c-'}, callback)
 
 clusters.handleDestroyCluster = (req, resp) ->
-  clusters.destroyCluster(req.couch, req.params.cluster_id).pipe(resp)
+  clusters.destroyCluster(req.couch, req.params.clusterId).pipe(resp)
 
 clusters.handleAddInstance = (req, resp) ->
   resp.send('NOT IMPLEMENTED')
@@ -56,35 +100,34 @@ clusters.handleAddInstance = (req, resp) ->
 clusters.handleUpdateCluster = (req, resp) ->
   resp.send('NOT IMPLEMENTED')
 
-clusters.setKeys = (client, cluster_id, keys, callback) ->
-  cluster_id = 'cluster_' + cluster_id
-  return doAction(client.use('moirai'), 'moirai', cluster_id, {a: 'k', keys: keys}, callback)
+clusters.setKeys = (client, clusterId, keys, callback) ->
+  return doAction(client.use('moirai'), 'moirai', formatClusterId(clusterId), {a: 'k', keys: keys}, callback)
 
 clusters.handleSetKeys = (req, resp) ->
   keys = req.body or []
-  clusters.setKeys(req.couch, req.params.cluster_id, keys).pipe(resp)
+  clusters.setKeys(req.couch, req.params.clusterId, keys).pipe(resp)
 
-clusters.startCluster = (client, cluster_id, callback) ->
-  clusters.getCluster(client, cluster_id, 'promise').then((cluster) ->
+clusters.startCluster = (client, clusterId, callback) ->
+  clusters.getCluster(client, clusterId, 'promise').then((cluster) ->
     awsIds = _.pluck(cluster.instances, 'aws_id')
     ec2Client.startInstances(awsIds)
   )
 
 clusters.handleStartCluster = (req, resp) ->
-  clusters.startCluster(req.couch, req.params.cluster_id).then((aws_resp) ->
+  clusters.startCluster(req.couch, req.params.clusterId).then((aws_resp) ->
     return resp.status(201).send(JSON.stringify(aws_resp))
   ).catch((err) ->
     return resp.status(500).send(JSON.stringify({error: 'internal error', msg: String(err)}))
   )
 
-clusters.stopCluster = (client, cluster_id, callback) ->
-  clusters.getCluster(client, cluster_id, 'promise').then((cluster) ->
+clusters.stopCluster = (client, clusterId, callback) ->
+  clusters.getCluster(client, clusterId, 'promise').then((cluster) ->
     awsIds = _.pluck(cluster.instances, 'aws_id')
     ec2Client.stopInstances(awsIds)
   )
 
 clusters.handleStopCluster = (req, resp) ->
-  clusters.stopCluster(req.couch, req.params.cluster_id).then((aws_resp) ->
+  clusters.stopCluster(req.couch, req.params.clusterId).then((aws_resp) ->
     return resp.status(201).send(JSON.stringify(aws_resp))
   ).catch((err) ->
     return resp.status(500).send(JSON.stringify({error: 'internal error', msg: String(err)}))

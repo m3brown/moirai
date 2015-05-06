@@ -28,6 +28,13 @@ dd =
         val = row.doc
         out.push(val)
       return JSON.stringify(out)
+    get_docs_without_audit: (header, req) ->
+      out = []
+      while(row = getRow())
+        val = row.doc
+        delete val.audit
+        out.push(val)
+      return JSON.stringify(out)
   }
   shows: {}
 
