@@ -37,7 +37,7 @@ instances.generateParams = (opts) ->
   requiredParams =
     MaxCount: 1
     MinCount: 1
-  userParams = _.pick(opts, conf.AWS.USER_PARAMS...)
+  userParams = _.pick(opts, 'ClientToken', conf.AWS.USER_PARAMS...)
   _.extend(params,
            conf.AWS.DEFAULT_PARAMS,
            userParams,
@@ -162,7 +162,12 @@ instances.destroyInstance = (aws_id) ->
     InstanceIds: [aws_id]
   }
 
-  instances.ec2.terminateInstances(params)
+  instances.ec2.terminateInstances(params).catch((err) ->
+    if err.code == 'InvalidInstanceID.NotFound'
+      return Promise.resolve()
+    else
+      return Promise.reject(err)
+  )
 
 
 module.exports = instances
