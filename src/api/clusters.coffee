@@ -29,6 +29,8 @@ clusters.getClusters = (client, opts) ->
   if opts.clusterIds
     params.keys = opts.clusterIds.map(formatClusterId)
   client.use('moirai').viewWithList('moirai', 'active_clusters', 'get_docs_without_audit', params, 'promise').then((clusters) ->
+    if _.isEmpty(clusters)
+      return Promise.resolve([])
     awsIds = _.chain(clusters)
               .pluck('instances')
               .flatten(true)
@@ -61,9 +63,9 @@ clusters.getClusters = (client, opts) ->
 
 clusters.handleGetClusters = (req, resp) ->
   clusterOpts = req.query or {}
-  if _.isString(req.query.clusterIds)
-    req.query.clusterIds = req.query.clusterIds.split(',')
-  clusters.getClusters(req.couch, req.query).then((clusters) ->
+  if _.isString(clusterOpts.clusterIds)
+    clusterOpts.clusterIds = clusterOpts.clusterIds.split(',')
+  clusters.getClusters(req.couch, clusterOpts).then((clusters) ->
     return resp.send(JSON.stringify(clusters))
   ).catch((err) ->
     return resp.status(500).send(JSON.stringify({error: 'internal error', msg: String(err)}))
