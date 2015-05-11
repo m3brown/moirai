@@ -49,13 +49,9 @@ instances.generateParams = (opts) ->
 
 instances.generateTags = (userTags) ->
   # TODO  pull out of ec2Client
-  tags =
-    Name: "AWSDEVMOIRAI", # TODO generate this
-    Application: '',
-    Creator: 'default.user@example.com', # TODO figure this out
-    Software: '',
-    BusinessOwner: '',
-    Description: '',
+  tags = {
+    #Name: 'name',
+  }
 
   # what if there are more than 10?
   userTags = _.pick(userTags, conf.AWS.TAG_PARAMS...)
