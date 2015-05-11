@@ -6,7 +6,7 @@ conf.AWS =
   REQUIRED_PARAMS:
     ImageId: 'testImage'
   USER_PARAMS: [ 'InstanceType', 'SubnetId', 'ImageId' ]
-  TAG_PARAMS: [ 'Name' ]
+  TAG_PARAMS: [ 'Name', 'Creator' ]
   USERDATA: '''
 this is the test user data with
 new lines and <HOSTNAME> variables
@@ -73,6 +73,17 @@ describe 'generateTags', () ->
         expect(actual.Application).toNotEqual('testApplication')
         expect(actual.NewEntry).toEqual(undefined)
 
+    it 'will not allow opts to override required_params', () ->
+        opts = {}
+        cut = ec2Client.generateTags
+        actual = cut(opts)
+        expect(actual.Domain).toEqual('dev')
+
+        opts = {Domain: 'new domain'}
+        cut = ec2Client.generateTags
+        actual = cut(opts)
+        expect(actual.Domain).toEqual('dev')
+
 describe 'generateUserData', () ->
     it 'will honor newlines', () ->
         cut = ec2Client.generateUserData
@@ -100,7 +111,6 @@ describe 'createInstance', () ->
           {Instances: [{InstanceId: 'testid', Tags: []}]}
         ))
         spyOn(ec2Client.ec2, 'createTags').andReturn(Promise.resolve())
-        #spyOn(ec2Client, 'prepareInstances').andReturn([{InsstanceId: 'testid', Tags: []}])
 
     it 'passes the opts to generate params', (done) ->
         cut = ec2Client.createInstance
