@@ -1,10 +1,10 @@
 {
   "admins": {
-    "names": [],
+    "names": ["admin"],
     "roles": []
   },
   "members": {
-    "names": [],
+    "names": ["admin"],
     "roles": []
   }
 }
