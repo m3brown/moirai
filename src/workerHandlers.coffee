@@ -80,7 +80,7 @@ handlers = {
       
     # set cluster keys
     'k': (event, doc) ->
-      promiseList = _.each(doc.instances, (instance) ->
+      promiseList = _.map(doc.instances, (instance) ->
         # If the create instance worker hasn't resolved yet, the aws_id
         # and ip may not exist yet
         if instance.aws_id?
@@ -88,14 +88,16 @@ handlers = {
         else
           Promise.setTimeout(60*1000).then(() ->
             couch_utils.nano_system_user.use('moirai').get(doc._id, 'promise')
-          ).then((doc) ->
-            if not instance.aws_id?
+          ).then((updatedDoc) ->
+            updatedInstance = _.findWhere(updatedDoc.instances, {id: instance.id})
+            if not updatedInstance.aws_id?
               return Promise.reject('Instance has no aws_id defined')
-            ec2KeyManagement.setSSHKeys(instance, doc.keys)
+            ec2KeyManagement.setSSHKeys(updatedInstance, doc.keys)
           )
       )
       Promise.all(promiseList).then(() ->
         return Promise.resolve()
+      ).catch((err) ->
       )
 
 }
