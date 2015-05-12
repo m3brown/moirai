@@ -37,6 +37,8 @@ clusters.getClusters = (client, opts) ->
               .pluck('aws_id')
               .compact()
               .value()
+    if _.isEmpty(awsIds)
+      return Promise.resolve([])
     ec2Client.getInstances(awsIds).then((ec2Instances) ->
       ec2InstanceLookup = {}
       _.each(ec2Instances, (ec2Instance) ->
