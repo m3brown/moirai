@@ -97,7 +97,6 @@ handlers = {
       )
       Promise.all(promiseList).then(() ->
         return Promise.resolve()
-      ).catch((err) ->
       )
 
 }

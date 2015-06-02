@@ -13,7 +13,7 @@ keys.exec = Promise.denodeify(child_process.exec)
 
 getSSHCommand = (host, pubkeys) ->
   remoteCommand = getRemoteCommand(pubkeys)
-  cmd = 'ssh -o StrictHostKeyChecking=no -i '+PRIVATE_KEY+' '+USERNAME+'@'+host+' '+remoteCommand
+  return 'ssh -o StrictHostKeyChecking=no -i '+PRIVATE_KEY+' '+USERNAME+'@'+host+' '+remoteCommand
 
 getRemoteCommand = (pubkeys) ->
   allKeys = DEFAULT_KEYS.concat(pubkeys)

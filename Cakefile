@@ -23,12 +23,12 @@ task 'watch', 'Watch src directory and build the .js files', (options) ->
   cp.stdout.pipe(process.stdout)
   cp.stderr.pipe(process.stderr)
 
-task 'runtestserver', 'Run the server (port 5000); restart on change', (options) ->
-  console.log('Running the server on port 5000; restarting on change')
+task 'runtestserver', 'Run the server (port 5001); restart on change', (options) ->
+  console.log('Running the server on port 5001; restarting on change')
   cp = exec "coffee --watch --output ./lib/ ./src/"
   cp.stdout.pipe(process.stdout)
   cp.stderr.pipe(process.stderr)
-  cp = exec "supervisor -w ./lib ./lib/app.js"
+  cp = exec "nodemon --watch ./lib --ignore ./lib/design_docs ./lib/app.js"
   cp.stdout.pipe(process.stdout)
   cp.stderr.pipe(process.stderr)
 
@@ -64,6 +64,7 @@ task 'test', 'run all tests (options: -v)', (options) ->
     cp = exec "jasmine-node --coffee ./spec"
   cp.stdout.pipe(process.stdout)
   cp.stderr.pipe(process.stderr)
+  cp.on('exit', (code) -> process.exit(code))
 
 task 'start_design_doc', 'create a new kanso design doc directory', (options) ->
   prompt_get = Promise.denodeify(prompt.get).bind(prompt);

@@ -7,7 +7,7 @@ bodyParser = require('body-parser')
 routes = require('./routes')
 
 # ensure db exists
-couch_utils.nano_system_user.db.create('moirai')
+couch_utils.create_db('moirai')
 
 # create application
 app = express()
