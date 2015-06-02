@@ -5,7 +5,7 @@ conf.AWS =
     KeyName: 'moirai'
   REQUIRED_PARAMS:
     ImageId: 'testImage'
-  USER_PARAMS: [ 'InstanceType', 'SubnetId', 'ImageId' ]
+  ALLOWED_USER_PARAMS: [ 'InstanceType', 'SubnetId', 'ImageId' ]
   TAG_PARAMS: [ 'Name', 'Creator' ]
   USERDATA: '''
 this is the test user data with
@@ -31,7 +31,7 @@ describe 'prepareInstances', () ->
         expect(actual).toEqual([this.preparedInstance])
 
 describe 'generateParams', () ->
-    it 'will only allow opts listed in USER_PARAMS', () ->
+    it 'will only allow opts listed in ALLOWED_USER_PARAMS', () ->
         opts = {
           InstanceType: 'overrideInstance',
           SubnetId: 'overrideSubnet',

@@ -37,7 +37,7 @@ instances.generateParams = (opts) ->
   requiredParams =
     MaxCount: 1
     MinCount: 1
-  userParams = _.pick(opts, 'ClientToken', conf.AWS.USER_PARAMS...)
+  userParams = _.pick(opts, 'ClientToken', conf.AWS.ALLOWED_USER_PARAMS...)
   _.extend(params,
            conf.AWS.DEFAULT_PARAMS,
            userParams,
