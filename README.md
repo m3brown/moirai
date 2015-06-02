@@ -24,7 +24,7 @@ npm install
 
 ## Configuration
 
-The configuration for Moirai is split into two files: `config.coffee` and `config_secret.coffee`.  The purpose of the secret file is to prevent accidentally committing confidential information such as passwords and access keys.  Any config settings and go in either config file, and settings in `config_secret.coffee` will override settings in `config.coffee`.
+The configuration for Moirai is split into two files: `config.coffee` and `config_secret.coffee`.  The purpose of the secret file is to prevent accidentally committing confidential information such as passwords and access keys.  Any config settings can go in either config file, and settings in `config_secret.coffee` will override settings in `config.coffee`.
 
 1. Copy the secret configs example and edit accordingly (see the Configuration section below)
 
