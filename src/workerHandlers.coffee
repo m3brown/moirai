@@ -77,7 +77,7 @@ handlers = {
         else
           return Promise.resolve({data: {instances: doc.instances}, path: []})
       )
-      
+
     # set cluster keys
     'k': (event, doc) ->
       promiseList = _.map(doc.instances, (instance) ->
@@ -98,7 +98,6 @@ handlers = {
       Promise.all(promiseList).then(() ->
         return Promise.resolve()
       )
-
 }
 
 module.exports = handlers
