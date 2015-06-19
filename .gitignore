@@ -2,6 +2,17 @@ moirai.key
 *~
 #*#
 
+# dev dependencies #
+#####################
+/node_modules/coffee-script
+/node_modules/jasmine-node
+/node_modules/istanbul
+
+# Testing #
+###########
+/coverage
+/spec/**/*.js
+
 *secret*
 !*secret*example
 
