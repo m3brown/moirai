@@ -1,5 +1,9 @@
 # Moirai
 
+[![Build Status](https://travis-ci.org/cfpb/moirai.svg?branch=master)](https://travis-ci.org/cfpb/moirai)
+
+[![Coverage Status](https://coveralls.io/repos/cfpb/moirai/badge.svg)](https://coveralls.io/r/cfpb/moirai)
+
 **Description**:  An API to create and manage AWS instances, written in Node.js.
 
   - **Origin of the name**: In Greek mythology, Moirai were the three Fates that controlled the thread of life.

@@ -1,1 +1,1 @@
-module.exports = ['moirai']
+module.exports = ['moirai', 'pantheon']

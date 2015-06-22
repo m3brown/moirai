@@ -57,14 +57,17 @@ task 'sync_design_docs', 'sync all design docs with couchdb (options: -t [type])
 
 option '-v', '--verbose', 'verbose testing output'
 
-task 'test', 'run all tests (options: -v)', (options) ->
-  if options.verbose
-    cp = exec "jasmine-node --coffee --verbose ./spec"
-  else
-    cp = exec "jasmine-node --coffee ./spec"
-  cp.stdout.pipe(process.stdout)
-  cp.stderr.pipe(process.stderr)
-  cp.on('exit', (code) -> process.exit(code))
+task 'test', 'run all tests', (options) ->
+  Promise.exec("./node_modules/coffee-script/bin/coffee --bare --compile --output ./spec/ ./spec/").then(() ->
+    cmd = "./node_modules/istanbul/lib/cli.js cover ./node_modules/jasmine-node/bin/jasmine-node ./spec"
+    cmd += if options.verbose then "--verbose " else ""
+    cmd += " ./spec/"
+
+    cp = exec(cmd)
+    cp.stdout.pipe(process.stdout)
+    cp.stderr.pipe(process.stderr)
+    cp.on('exit', (code) -> process.exit(code))
+  )
 
 task 'start_design_doc', 'create a new kanso design doc directory', (options) ->
   prompt_get = Promise.denodeify(prompt.get).bind(prompt);
