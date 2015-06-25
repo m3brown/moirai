@@ -341,10 +341,11 @@ describe 'k', () ->
             done()
         )
 
-    it 'passes even if one or more instances failed', (done) ->
+    it 'fails if there is an error', (done) ->
         cut = handlers.cluster['k']
-        cut(this.event, this.doc).catch(() ->
-            done('Test failed, promise should have been resolved but was rejected')
-        ).then(() ->
-            done()
+        cut(this.event, this.doc).then(
+            () ->
+                done('should have been an error, but there was not')
+            () ->
+                done()
         )
