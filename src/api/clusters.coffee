@@ -1,7 +1,6 @@
 _ = require('underscore')
 Promise = require('pantheon-helpers/lib/promise')
 ec2Client = require('../ec2Client')
-couch_utils = require('../couch_utils')
 uuid = require('node-uuid')
 
 doAction = require('pantheon-helpers/lib/doAction')
