@@ -9,6 +9,8 @@ doAction = require('pantheon-helpers/lib/doAction')
 CLUSTER_MISSING_NAME_ERROR = "Cluster name not provided"
 
 clusters = {}
+clusters.doAction = doAction;
+
 
 formatClusterId = (clusterId) ->
   if clusterId.indexOf('cluster_') == 0
@@ -73,12 +75,24 @@ clusters.handleGetClusters = (req, resp) ->
     return resp.status(500).send(JSON.stringify({error: 'internal error', msg: String(err)}))
   )
 
-clusters.createCluster = (client, record) ->
+
+cluster.getCreateObject = (date) ->
+  return {
+    a: 'c+',
+    createdTimestamp: date || new Date(),
+    scheduleShutdown: date.getDate() + 15,
+  }
+
+clusters.createCluster = (client, record, actionObj=cluster.getCreateObject()) ->
   if not record.name?
     return Promise.reject(CLUSTER_MISSING_NAME_ERROR)
 
   record.instances.forEach((instance) -> instance.id = uuid.v4())
-  return doAction(client.use('moirai'), 'moirai', null, {a: 'c+', record: record}, 'promise')
+  actionObj.record = record;
+
+  return this.clusters.doAction(client.use('moirai'),
+    'moirai', null, actionObj, 'promise')
+
 
 clusters.handleCreateCluster = (req, resp) ->
   clusterOpts = req.body or {}

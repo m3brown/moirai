@@ -23,7 +23,8 @@ a.do_actions = {
             _.extend(doc, {
                 _id: 'cluster_' + doc._id,
                 name: action.record.name,
-                created: +new Date(),
+                created: action.createdTimestamp,
+                shutdown: action.scheduledShutdown,
                 instances: action.record.instances.map((instance) ->
                     return {
                         id: instance.id,

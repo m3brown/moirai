@@ -47,6 +47,8 @@ describe 'do_actions c+', () ->
             a: 'c+',
             record: {
               name: "cluster-name",
+              createdTimestamp: +new Date(),
+              scheduledShutdown: (+new Date()).getDate() + 15,
               instances: [
                   {
                       id: 'instance1.id',
@@ -73,7 +75,8 @@ describe 'do_actions c+', () ->
         cut(this.doc, this.action, 'actor')
         expect(this.doc.name).toEqual('cluster-name')
         expect(this.doc._id).toEqual('cluster_xxx')
-        expect(this.doc.created).toEqual(jasmine.any(Number))
+        expect(this.doc.created).toEqual(this.action.createdTimestamp)
+        expect(this.doc.shutdown).toEqual(this.action.scheduledShutdown)
         
     it 'creates instances with only id, name, and size', () ->
         cut = actions.do_actions.create['c+']
