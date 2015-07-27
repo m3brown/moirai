@@ -2,6 +2,7 @@ _ = require('underscore')
 Promise = require('pantheon-helpers/lib/promise')
 ec2Client = require('../ec2Client')
 couch_utils = require('../couch_utils')
+conf = require('../config')
 uuid = require('node-uuid')
 
 doAction = require('pantheon-helpers/lib/doAction')
@@ -76,21 +77,24 @@ clusters.handleGetClusters = (req, resp) ->
   )
 
 
-cluster.getCreateObject = (date) ->
+clusters.getCreateObject = (date) ->
+  createdDateTime = date || new Date()
+  scheduledDateTime = new Date(createdDateTime.getTime())
+  scheduledDateTime.setDate(scheduledDateTime.getDate() + 15)
   return {
     a: 'c+',
-    createdTimestamp: date || new Date(),
-    scheduleShutdown: date.getDate() + 15,
+    createdTimestamp: createdDateTime,
+    scheduledShutdown: scheduledDateTime
   }
 
-clusters.createCluster = (client, record, actionObj=cluster.getCreateObject()) ->
+clusters.createCluster = (client, record, actionObj=clusters.getCreateObject()) ->
   if not record.name?
     return Promise.reject(CLUSTER_MISSING_NAME_ERROR)
 
   record.instances.forEach((instance) -> instance.id = uuid.v4())
   actionObj.record = record;
 
-  return this.clusters.doAction(client.use('moirai'),
+  return clusters.doAction(client.use('moirai'),
     'moirai', null, actionObj, 'promise')
 
 

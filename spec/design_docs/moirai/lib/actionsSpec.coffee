@@ -47,8 +47,8 @@ describe 'do_actions c+', () ->
             a: 'c+',
             record: {
               name: "cluster-name",
-              createdTimestamp: +new Date(),
-              scheduledShutdown: (+new Date()).getDate() + 15,
+              createdTimestamp: new Date(),
+              scheduledShutdown: new Date(),
               instances: [
                   {
                       id: 'instance1.id',
