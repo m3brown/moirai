@@ -5,7 +5,7 @@ doAction = require('pantheon-helpers/lib/doAction')
 describe 'cluster', () ->
     beforeEach () ->
         this.preparedInstance = {InstanceId: 'testid'}
-        this.record = {name:'foo', instances :[]}
+        this.record = {name:'foo', instances :[{},{}]}
         this.cut = clusters
         spyOn(clusters, 'doAction').andReturn('userData')
 
@@ -58,3 +58,18 @@ describe 'cluster', () ->
         result = this.cut.createCluster(this.client, this.record, null)
        
         expect(clusters.getCreateObject).toHaveBeenCalled()
+
+    it 'assigns id to instances', ()->
+      this.cut.createCluster(this.client, this.record)
+      expect(this.record.instances[0].id).toBeDefined()
+      expect(this.record.instances[1].id).toBeDefined()
+
+    it 'should reject the promise if record name is null', (done)->
+        promise =  this.cut.createCluster(this.client, {}, null)
+
+        promise.then(() ->
+            done('Test failed, promise should have been rejected but was resolved')
+        ).catch((err) ->
+            expect(err).toBe('Cluster name not provided')
+            done()
+        )
