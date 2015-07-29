@@ -2,6 +2,7 @@ _ = require('underscore')
 Promise = require('pantheon-helpers/lib/promise')
 ec2Client = require('../ec2Client')
 couch_utils = require('../couch_utils')
+conf = require('../config')
 uuid = require('node-uuid')
 
 doAction = require('pantheon-helpers/lib/doAction')
@@ -9,6 +10,8 @@ doAction = require('pantheon-helpers/lib/doAction')
 CLUSTER_MISSING_NAME_ERROR = "Cluster name not provided"
 
 clusters = {}
+clusters.doAction = doAction;
+
 
 formatClusterId = (clusterId) ->
   if clusterId.indexOf('cluster_') == 0
@@ -73,12 +76,27 @@ clusters.handleGetClusters = (req, resp) ->
     return resp.status(500).send(JSON.stringify({error: 'internal error', msg: String(err)}))
   )
 
-clusters.createCluster = (client, record) ->
+
+clusters.getCreateObject = (date) ->
+  createdDateTime = date || new Date()
+  scheduledDateTime = new Date(createdDateTime.getTime())
+  scheduledDateTime.setDate(scheduledDateTime.getDate() + 15)
+  return {
+    a: 'c+',
+    createdTimestamp: createdDateTime,
+    scheduledShutdown: scheduledDateTime
+  }
+
+clusters.createCluster = (client, record, actionObj=clusters.getCreateObject()) ->
   if not record.name?
     return Promise.reject(CLUSTER_MISSING_NAME_ERROR)
 
   record.instances.forEach((instance) -> instance.id = uuid.v4())
-  return doAction(client.use('moirai'), 'moirai', null, {a: 'c+', record: record}, 'promise')
+  actionObj.record = record;
+
+  return clusters.doAction(client.use('moirai'),
+    'moirai', null, actionObj, 'promise')
+
 
 clusters.handleCreateCluster = (req, resp) ->
   clusterOpts = req.body or {}
