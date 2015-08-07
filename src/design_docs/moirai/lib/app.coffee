@@ -18,6 +18,30 @@ dd =
              if instance.state != 'terminate'
                emit(doc._id)
                return
+    },
+    cluster_scheduled_shutdown: {
+       map: (doc) ->
+         # can't import from outside views
+         # dupe of function in './actions'
+         get_doc_type = (doc) ->
+             if doc._id.indexOf('_') < 0
+                 return undefined
+             return doc._id.split('_')[0]
+
+         if get_doc_type(doc) == 'cluster' and doc.instances.length
+           for instance in doc.instances
+             if instance.state? == 'terminate'
+               return
+           if doc.shutdown?
+             awsIds = doc.instances.map((instance) ->
+               return instance.aws_id
+             )
+             #underscore doesn't work!
+             #awsIds = _.chain(clusters)
+             #          .pluck('aws_id')
+             #          .compact()
+             emit(doc.shutdown, awsIds)
+           return
     }
   }
 

@@ -7,9 +7,13 @@ ec2Client = require('./ec2Client')
 Promise = require('pantheon-helpers/lib/promise')
 handlers = require('./workerHandlers')
 logger = require('./loggers').worker
+scheduler = require('./scheduler')
+
 db = couch_utils.nano_system_user.use('moirai')
 worker.start_worker(logger,
                     db,
                     handlers,
                     get_doc_type
                    )
+
+scheduler.shutdownTimer()

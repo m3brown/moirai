@@ -3,6 +3,7 @@ clusters = require('./api/clusters')
 module.exports = (app) ->
 
     app.get('/moirai/clusters', clusters.handleGetClusters)
+#    app.get('/moirai/instancesToShutdown', clusters.handleGetInstancesToShutdown)
     app.post('/moirai/clusters', clusters.handleCreateCluster)
 
     app.get('/moirai/clusters/:clusterId', clusters.handleGetCluster)

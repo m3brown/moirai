@@ -77,10 +77,33 @@ clusters.handleGetClusters = (req, resp) ->
   )
 
 
+clusters.getInstancesToShutdown = (client) ->
+  # endKey: Only return documents where shutdown key < now
+  params = {endKey: +new Date()}
+  client.use('moirai').view('moirai', 'cluster_scheduled_shutdown', params, 'promise').then((clusters) ->
+    awsIds = _.chain(clusters.rows)
+              .pluck('value')
+              .flatten(true)
+              .compact()
+              .value()
+    Promise.resolve(awsIds)
+  )
+
+#### Leaving commented out for now since it may be useful for testing
+#### If you delete this function, also remove the entry in routes.coffee
+#clusters.handleGetInstancesToShutdown = (req, resp) ->
+#  clusters.getInstancesToShutdown(req.couch).then((clusters) ->
+#    console.log("success!", clusters)
+#    return resp.send(JSON.stringify(clusters))
+#  ).catch((err) ->
+#    console.log("failure!", err)
+#    return resp.status(500).send(JSON.stringify({error: 'internal error', msg: String(err)}))
+#  )
+
 clusters.getCreateObject = (date) ->
-  createdDateTime = date || new Date()
-  scheduledDateTime = new Date(createdDateTime.getTime())
-  scheduledDateTime.setDate(scheduledDateTime.getDate() + 15)
+  createdDateTime = date || +new Date()
+  DAY_IN_MILLIS=24*60*60*1000
+  scheduledDateTime = createdDateTime + 15*DAY_IN_MILLIS
   return {
     a: 'c+',
     createdTimestamp: createdDateTime,
